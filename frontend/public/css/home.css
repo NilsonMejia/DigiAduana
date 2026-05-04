@@ -1,0 +1,115 @@
+
+:root {
+    --primary-orange: #ff6b00;
+    --dark-blue: #1a2b3c;
+    --light-bg: #f4f7f9;
+    --text-main: #333;
+    --border-color: #e1e8ed;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--light-bg);
+    color: var(--text-main);
+    margin: 0;
+}
+
+/* Navbar Style similar to the screenshot */
+.navbar-custom {
+    background-color: white;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.5rem 2rem;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    color: var(--dark-blue) !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nav-link-custom {
+    color: var(--text-main);
+    font-weight: 500;
+    margin: 0 10px;
+    text-decoration: none;
+}
+
+/* Hero Section / Search Bar Area */
+.hero-search {
+    background-color: var(--dark-blue);
+    padding: 60px 0;
+    text-align: center;
+    color: white;
+}
+
+.search-container {
+    max-width: 800px;
+    margin: 20px auto;
+    position: relative;
+}
+
+.search-input {
+    width: 100%;
+    padding: 20px 25px;
+    border-radius: 50px;
+    border: none;
+    font-size: 1.2rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.search-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: var(--primary-orange);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 40px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* Tracking Cards Style */
+.tracking-card {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 15px;
+    padding: 20px;
+    transition: box-shadow 0.3s;
+}
+
+.tracking-card:hover {
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+}
+
+.status-dot {
+    height: 12px;
+    width: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+}
+
+.status-delivered { background-color: #28a745; }
+.status-transit { background-color: var(--primary-orange); }
+
+/* Sidebar/Filter area on the left */
+.filter-sidebar {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.filter-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+}
+
+.filter-item:last-child { border-bottom: none; }
