@@ -1,26 +1,30 @@
 <template>
   <div class="app-dashboard">
-    <!-- Sidebar mejorada con más espacio -->
     <aside class="sidebar">
       <div class="logo-area">
-        <div class="logo-icon">DA</div>
-        <span class="logo-text">DigiAduana</span>
+        <img :src="iconNavbar" alt="Icono DigiAduana" class="logo-img" />
+        
+        <div class="logo-text-wrapper">
+          <div class="logo-text">
+            <span class="text-digi">Digi</span><span class="text-aduana">Aduana</span>
+          </div>
+        </div>
       </div>
       <nav class="sidebar-nav">
         <a href="#" class="nav-item active" @click.prevent>
-          <i class="fas fa-tachometer-alt"></i> Dashboard
+          <i class="fas fa-tachometer-alt"></i> <span>Dashboard</span>
         </a>
         <a href="#" class="nav-item" @click.prevent="$emit('navigate', '/expedientes')">
-          <i class="fas fa-folder-tree"></i> Expedientes
+          <i class="fas fa-folder-tree"></i> <span>Expedientes</span>
         </a>
         <a href="#" class="nav-item" @click.prevent="$emit('navigate', '/expedientes/nuevo')">
-          <i class="fas fa-plus-circle"></i> Nuevo trámite
+          <i class="fas fa-plus-circle"></i> <span>Nuevo trámite</span>
         </a>
         <a href="#" class="nav-item" @click.prevent>
-          <i class="fas fa-chart-line"></i> Reportes
+          <i class="fas fa-chart-line"></i> <span>Reportes</span>
         </a>
         <a href="#" class="nav-item" @click.prevent>
-          <i class="fas fa-cog"></i> Configuración
+          <i class="fas fa-cog"></i> <span>Configuración</span>
         </a>
       </nav>
       <div class="user-info">
@@ -32,7 +36,6 @@
       </div>
     </aside>
 
-    <!-- Main content con más padding -->
     <main class="main-content">
       <div class="top-bar">
         <div class="welcome">
@@ -48,7 +51,6 @@
 
       <p v-if="error" class="error-banner"><i class="fas fa-exclamation-triangle"></i> {{ error }}</p>
 
-      <!-- Métricas con más espacio y animaciones -->
       <div class="metrics-grid">
         <div v-for="metric in metrics" :key="metric.label" class="metric-card" :style="{ '--accent': metric.accent }">
           <div class="metric-icon">
@@ -70,7 +72,6 @@
         </div>
       </div>
 
-      <!-- Fila de mapas y gráfico con mejor espaciado -->
       <div class="row-split">
         <div class="card map-card">
           <div class="card-header">
@@ -103,12 +104,10 @@
         </div>
       </div>
 
-      <!-- ========== SECCIÓN EXPEDIENTES RECIENTES (totalmente mejorada) ========== -->
       <div class="card full-width">
         <div class="card-header">
           <h3><i class="fas fa-file-signature"></i> Expedientes recientes</h3>
           <div class="filters-container">
-            <!-- Búsqueda mejorada -->
             <div class="search-wrapper">
               <i class="fas fa-search search-icon"></i>
               <input 
@@ -122,7 +121,6 @@
               </button>
             </div>
             
-            <!-- Filtros tipo chips con más espacio -->
             <div class="status-chips">
               <button 
                 v-for="state in statusOptions" 
@@ -135,7 +133,6 @@
               </button>
             </div>
             
-            <!-- Botón refrescar mejorado -->
             <button class="refresh-premium" @click="loadData" :disabled="loading">
               <i class="fas fa-sync-alt" :class="{ 'fa-spin': loading }"></i>
               <span>{{ loading ? 'Cargando...' : 'Actualizar' }}</span>
@@ -143,7 +140,6 @@
           </div>
         </div>
 
-        <!-- Skeleton loaders mejorados -->
         <div v-if="loading" class="skeleton-premium">
           <div v-for="i in 5" :key="i" class="skeleton-row">
             <div class="skeleton-cell"></div>
@@ -155,7 +151,6 @@
           </div>
         </div>
 
-        <!-- Estado vacío atractivo -->
         <div v-else-if="filteredExpedientes.length === 0" class="empty-state-premium">
           <div class="empty-icon">
             <i class="fas fa-search"></i>
@@ -167,7 +162,6 @@
           </button>
         </div>
 
-        <!-- Tabla premium con más altura y mejor legibilidad -->
         <div v-else class="expedientes-table-premium">
           <div class="table-header">
             <div><i class="fas fa-hashtag"></i> Código</div>
@@ -224,7 +218,6 @@
         </div>
       </div>
 
-      <!-- Integraciones externas mejoradas: más espacio y diseño de tarjetas -->
       <div class="integrations-row">
         <div class="integration-card" v-for="int in integrationsList" :key="int.name">
           <div class="integration-icon" :class="{ active: int.status }">
@@ -246,6 +239,8 @@
 <script setup>
 import { computed, onMounted, ref, watch, nextTick } from 'vue';
 import { api, getStoredUser } from '../services/api';
+// Importamos la imagen del navbar
+import iconNavbar from '../assets/icon-navbar.png';
 import Chart from 'chart.js/auto';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -425,14 +420,14 @@ onMounted(() => {
 
 <style scoped>
 /* ----- GLOBAL ----- */
-@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;500;600;700;800;900&display=swap');
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 .app-dashboard {
   display: flex;
   min-height: 100vh;
   background: radial-gradient(circle at 10% 20%, #0B1120, #030712);
-  font-family: 'Inter', 'Space Grotesk', sans-serif;
+  font-family: 'Inter', sans-serif;
   color: #E2E8F0;
 }
 
@@ -453,24 +448,48 @@ onMounted(() => {
   align-items: center;
   gap: 0.8rem;
   padding-left: 0.5rem;
+  cursor: pointer;
 }
-.logo-icon {
+
+/* --- ESTILOS DEL LOGO PREMIUM (Importados del Login/Home) --- */
+.logo-img {
   width: 42px;
   height: 42px;
-  background: linear-gradient(135deg, #3B82F6, #00D4FF);
-  border-radius: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 1.4rem;
-  color: white;
-  box-shadow: 0 8px 20px rgba(59,130,246,0.4);
+  object-fit: contain;
+  -webkit-mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
+  mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
+  filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.5));
+  transition: transform 0.3s ease;
 }
+
+.logo-area:hover .logo-img {
+  transform: scale(1.1) rotate(-5deg);
+}
+
+.logo-text-wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1;
+}
+
 .logo-text {
-  font-size: 1.4rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #fff, #A0C4FF);
+  font-family: 'Inter', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 900;
+  letter-spacing: -1px;
+  filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.6));
+}
+
+.text-digi {
+  background: linear-gradient(180deg, #00D4FF 0%, #0066FF 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.text-aduana {
+  background: linear-gradient(180deg, #FFFFFF 0%, #A0B4CE 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -491,8 +510,9 @@ onMounted(() => {
   transition: all 0.2s;
   text-decoration: none;
 }
-.nav-item i { width: 24px; }
+.nav-item i { width: 24px; text-align: center; }
 .nav-item:hover, .nav-item.active { background: rgba(59, 130, 246, 0.2); color: white; }
+
 .user-info {
   margin-top: auto;
   display: flex;
@@ -911,7 +931,8 @@ onMounted(() => {
 /* RESPONSIVE */
 @media (max-width: 1000px) {
   .sidebar { width: 80px; padding: 1rem; }
-  .logo-text, .nav-item span, .user-info div { display: none; }
+  /* Ocultamos también el contenedor de las letras premium cuando se encoge la barra */
+  .logo-text-wrapper, .nav-item span, .user-info div { display: none; }
   .avatar { width: 40px; height: 40px; }
   .row-split { grid-template-columns: 1fr; }
   .main-content { padding: 1.5rem; }

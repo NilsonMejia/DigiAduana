@@ -1,6 +1,5 @@
 <template>
   <div class="login-wrapper">
-    <!-- Fondo con formas animadas -->
     <div class="animated-shapes">
       <div class="shape shape-1"></div>
       <div class="shape shape-2"></div>
@@ -8,44 +7,20 @@
       <div class="shape shape-4"></div>
     </div>
     
-    <!-- Contenedor de partículas -->
     <div class="particles" ref="particlesContainer"></div>
 
     <div class="login-container">
-      <!-- Panel izquierdo: Branding creativo -->
       <div class="brand-panel">
         <div class="brand-content">
           <div class="logo-3d">
-            <div class="logo-icon">
-              <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M50 10 L90 30 L90 70 L50 90 L10 70 L10 30 L50 10Z" stroke="url(#grad1)" stroke-width="2" fill="none"/>
-                <path d="M50 25 L75 40 L75 60 L50 75 L25 60 L25 40 L50 25Z" fill="url(#grad2)" opacity="0.8"/>
-                <circle cx="50" cy="50" r="8" fill="white" stroke="#FFD966" stroke-width="2"/>
-                <line x1="50" y1="25" x2="50" y2="42" stroke="#FFD966" stroke-width="2"/>
-                <line x1="50" y1="58" x2="50" y2="75" stroke="#FFD966" stroke-width="2"/>
-                <line x1="25" y1="50" x2="42" y2="50" stroke="#FFD966" stroke-width="2"/>
-                <line x1="58" y1="50" x2="75" y2="50" stroke="#FFD966" stroke-width="2"/>
-                <defs>
-                  <linearGradient id="grad1" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stop-color="#3B82F6"/>
-                    <stop offset="100%" stop-color="#00D4FF"/>
-                  </linearGradient>
-                  <linearGradient id="grad2" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stop-color="#1E3A8A"/>
-                    <stop offset="100%" stop-color="#0F3B5C"/>
-                  </linearGradient>
-                </defs>
-              </svg>
+            <img :src="iconNavbar" alt="Icono DigiAduana" class="logo-img" />
+            
+            <div class="logo-text-wrapper">
+              <div class="logo-text">
+                <span class="text-digi">Digi</span><span class="text-aduana">Aduana</span>
+              </div>
+              <span class="logo-subtitle">Automatización Inteligente</span>
             </div>
-            <div class="logo-text">
-              <span class="digi-text">Digi</span><span class="aduana-text">Aduana</span>
-            </div>
-          </div>
-          
-          <div class="tagline-creative">
-            <span class="line"></span>
-            <span class="text">Automatización inteligente de aduanas</span>
-            <span class="line"></span>
           </div>
           
           <div class="transport-icons">
@@ -64,7 +39,6 @@
         </div>
       </div>
 
-      <!-- Panel derecho: Formulario premium -->
       <div class="form-panel">
         <div class="form-card">
           <div class="form-header">
@@ -146,6 +120,8 @@
 <script setup>
 import { reactive, ref, onMounted } from 'vue';
 import { api, saveSession } from '../services/api';
+// Importamos la imagen del navbar
+import iconNavbar from '../assets/icon-navbar.png';
 
 const emit = defineEmits(['navigate', 'session-change']);
 
@@ -219,7 +195,7 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800;900&display=swap');
 
 .login-wrapper {
   min-height: 100vh;
@@ -227,7 +203,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   position: relative;
-  font-family: 'Inter', 'Space Grotesk', sans-serif;
+  font-family: 'Inter', sans-serif;
   background: radial-gradient(circle at 20% 30%, #0A1A2F, #030712);
   overflow: hidden;
 }
@@ -315,20 +291,10 @@ onMounted(() => {
 }
 
 @keyframes float {
-  0% {
-    transform: translateY(0) translateX(0);
-    opacity: 0;
-  }
-  20% {
-    opacity: 0.6;
-  }
-  80% {
-    opacity: 0.4;
-  }
-  100% {
-    transform: translateY(-100px) translateX(20px);
-    opacity: 0;
-  }
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  20% { opacity: 0.6; }
+  80% { opacity: 0.4; }
+  100% { transform: translateY(-100px) translateX(20px); opacity: 0; }
 }
 
 /* Contenedor principal */
@@ -367,10 +333,16 @@ onMounted(() => {
   margin-bottom: 2rem;
 }
 
-.logo-icon {
-  width: 100px;
-  height: 100px;
-  margin: 0 auto 1rem;
+/* Estilos de la imagen del logo */
+.logo-img {
+  width: 110px;
+  height: 110px;
+  object-fit: contain;
+  margin: 0 auto 1.5rem;
+  display: block;
+  -webkit-mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
+  mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
+  filter: drop-shadow(0 0 12px rgba(0, 212, 255, 0.5));
   animation: floatLogo 3s ease-in-out infinite;
 }
 
@@ -379,51 +351,50 @@ onMounted(() => {
   50% { transform: translateY(-8px); }
 }
 
-.logo-text {
-  font-size: 2.8rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.digi-text {
-  background: linear-gradient(135deg, #FFFFFF, #A0C4FF);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.aduana-text {
-  background: linear-gradient(135deg, #FFD966, #FFA500);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.tagline-creative {
+/* Estilos del texto premium */
+.logo-text-wrapper {
   display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  margin: 1.5rem 0;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1;
 }
 
-.tagline-creative .line {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #00D4FF, transparent);
+.logo-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 2.8rem;
+  font-weight: 900;
+  letter-spacing: -1.5px;
+  filter: drop-shadow(0px 3px 4px rgba(0,0,0,0.6));
 }
 
-.tagline-creative .text {
-  font-size: 0.75rem;
-  text-transform: uppercase;
+.text-digi {
+  background: linear-gradient(180deg, #00D4FF 0%, #0066FF 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.text-aduana {
+  background: linear-gradient(180deg, #FFFFFF 0%, #A0B4CE 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.logo-subtitle {
+  font-size: 0.65rem;
+  font-weight: 700;
   letter-spacing: 2px;
-  color: #A0C4FF;
+  color: #94A3B8;
+  margin-top: 8px;
+  text-transform: uppercase;
 }
 
 .transport-icons {
   display: flex;
   justify-content: center;
   gap: 1.5rem;
-  margin: 2rem 0;
+  margin: 2.5rem 0 2rem;
 }
 
 .icon-card {
