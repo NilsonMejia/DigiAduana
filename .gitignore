@@ -3,3 +3,5 @@ node_modules/
 frontend-vue-dist/
 uploads/*
 !uploads/.gitkeep
+vite-dev*.log
+mock-api*.log

@@ -57,12 +57,12 @@ exports.login = asyncHandler(async (req, res) => {
 });
 
 exports.registro = asyncHandler(async (req, res) => {
-  const { nombre, correo, password, rol = 'CLIENTE', cliente_id = null } = req.body;
+  const { nombre, correo, password, cliente_id = null } = req.body;
   if (!nombre || !correo || !password) {
     return res.status(400).json({ mensaje: 'Nombre, correo y password son requeridos' });
   }
 
-  const [[rolDb]] = await pool.query('SELECT id, nombre FROM roles WHERE nombre = ?', [rol]);
+  const [[rolDb]] = await pool.query('SELECT id, nombre FROM roles WHERE nombre = ?', ['CLIENTE']);
   if (!rolDb) return res.status(400).json({ mensaje: 'Rol no valido' });
 
   const passwordHash = await bcrypt.hash(password, 10);

@@ -2,7 +2,14 @@ const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
 export function getStoredUser() {
   const raw = localStorage.getItem('digiaduana_user');
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    clearSession();
+    return null;
+  }
 }
 
 export function getToken() {
