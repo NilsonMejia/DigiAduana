@@ -1,7 +1,9 @@
 <template>
   <aside class="sidebar" :class="{ 'sidebar--compact': compact }">
     <RouterLink class="sidebar__brand" :to="{ name: 'RoleDashboard' }">
-      <span class="sidebar__mark">DA</span>
+      <span class="sidebar__mark">
+        <img :src="iconNavbar" alt="DigiAduana" />
+      </span>
       <span v-if="!compact">DigiAduana</span>
     </RouterLink>
 
@@ -33,6 +35,7 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { useAuthStore } from '../../stores/authStore';
+import iconNavbar from '../../assets/icon-navbar.png';
 
 defineProps({
   compact: {
@@ -117,10 +120,17 @@ const menuItems = computed(() => menusByRole[auth.userRole] || []);
 .sidebar__mark {
   width: 2.5rem;
   height: 2.5rem;
-  color: #fff;
   border-radius: 0.8rem;
-  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+  background: rgba(15, 23, 42, 0.78);
   box-shadow: 0 10px 26px rgba(59, 130, 246, 0.26);
+  overflow: hidden;
+}
+
+.sidebar__mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 0.18rem;
 }
 
 .sidebar__toggle {

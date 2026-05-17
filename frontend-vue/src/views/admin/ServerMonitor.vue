@@ -31,7 +31,9 @@
             </div>
             <span class="status-pill online">Cluster estable</span>
           </header>
-          <canvas ref="cpuCanvas"></canvas>
+          <div class="chart-frame">
+            <canvas ref="cpuCanvas" width="560" height="320"></canvas>
+          </div>
         </article>
 
         <article class="chart-card">
@@ -42,7 +44,9 @@
             </div>
             <span class="status-pill warning">Picos controlados</span>
           </header>
-          <canvas ref="ramCanvas"></canvas>
+          <div class="chart-frame">
+            <canvas ref="ramCanvas" width="560" height="320"></canvas>
+          </div>
         </article>
       </section>
 
@@ -349,6 +353,10 @@ h1 {
   padding: 1.1rem;
 }
 
+.chart-card {
+  overflow: hidden;
+}
+
 .glass-card i {
   width: 2.7rem;
   height: 2.7rem;
@@ -381,9 +389,18 @@ h1 {
   color: #fff;
 }
 
-.chart-card canvas {
-  width: 100%;
+.chart-frame {
+  width: min(100%, 560px);
   height: 320px;
+  margin: 0 auto;
+}
+
+.chart-frame canvas {
+  display: block;
+  width: 100% !important;
+  height: 320px !important;
+  max-width: 560px;
+  max-height: 320px;
 }
 
 .online {

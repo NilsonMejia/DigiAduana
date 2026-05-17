@@ -5,7 +5,7 @@
     <nav class="navbar">
       <div class="nav-brand">
         <div class="logo-icon">
-          <i class="fas fa-passport"></i>
+          <img :src="iconNavbar" alt="DigiAduana" />
         </div>
         <div class="logo-text-wrapper">
           <div class="logo-text">
@@ -122,7 +122,7 @@
       <div class="footer-content">
         <div class="footer-brand footer-brand-premium">
           <div class="logo-icon small">
-            <i class="fas fa-passport"></i>
+            <img :src="iconNavbar" alt="DigiAduana" />
           </div>
           <div class="logo-text-wrapper">
             <div class="logo-text small">
@@ -157,6 +157,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/authStore';
 import { api } from '../../services/api';
+import iconNavbar from '../../assets/icon-navbar.png';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -280,15 +281,21 @@ async function trackShipment() {
 .logo-icon {
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, #1E3A8A, #3B82F6);
+  background: rgba(15, 23, 42, 0.78);
   border-radius: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.8rem;
-  color: white;
   box-shadow: 0 8px 20px rgba(59,130,246,0.4);
   transition: transform 0.3s ease;
+  overflow: hidden;
+}
+
+.logo-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 0.18rem;
 }
 
 .logo-icon.small {

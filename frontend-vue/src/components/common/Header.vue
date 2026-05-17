@@ -6,8 +6,9 @@
     </div>
 
     <div class="topbar__profile">
-      <button class="topbar__notify" type="button" aria-label="Notificaciones">
+      <button class="topbar__notify" type="button" aria-label="Notificaciones" @click="goToNotifications">
         <i class="fas fa-bell"></i>
+        <span v-if="notificationCount" class="topbar__notify-count">{{ notificationCount }}</span>
       </button>
       <div class="topbar__avatar" aria-hidden="true">{{ initials }}</div>
       <div class="topbar__user">
@@ -20,13 +21,15 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/authStore';
+import { api } from '../../services/api';
 
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
+const notificationCount = ref(0);
 
 const title = computed(() => route.meta.title || 'Panel principal');
 const initials = computed(() =>
@@ -48,10 +51,28 @@ const roleLabels = {
 
 const roleLabel = computed(() => roleLabels[auth.userRole] || 'Usuario');
 
+async function loadNotificationsCount() {
+  if (auth.userRole !== 'admin') return;
+  try {
+    const response = await api('/notificaciones');
+    notificationCount.value = Number(response.total ?? response.data?.length ?? response.length ?? 0);
+  } catch {
+    notificationCount.value = 0;
+  }
+}
+
+function goToNotifications() {
+  if (auth.userRole === 'admin') {
+    router.push({ name: 'AdminNotifications' });
+  }
+}
+
 function logout() {
   auth.logout();
   router.push({ name: 'Login' });
 }
+
+onMounted(loadNotificationsCount);
 </script>
 
 <style scoped>
@@ -97,10 +118,29 @@ function logout() {
 }
 
 .topbar__notify {
+  position: relative;
   width: 2.4rem;
   height: 2.4rem;
   color: #fcd34d;
   font-weight: 900;
+  cursor: pointer;
+}
+
+.topbar__notify-count {
+  position: absolute;
+  top: -0.4rem;
+  right: -0.4rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  display: grid;
+  place-items: center;
+  padding: 0 0.25rem;
+  color: #fff;
+  border: 2px solid #0f172a;
+  border-radius: 999px;
+  background: #ef4444;
+  font-size: 0.68rem;
+  line-height: 1;
 }
 
 .topbar__avatar {

@@ -13,6 +13,7 @@ const dteRoutes = require('./routes/dteRoutes');
 const reportesRoutes = require('./routes/reportesRoutes');
 const usuariosRoutes = require('./routes/usuariosRoutes');
 const operacionesRoutes = require('./routes/operacionesRoutes');
+const notificacionesRoutes = require('./routes/notificacionesRoutes');
 const mockHacienda = require('./mocks/hacienda');
 const mockNavieras = require('./mocks/navieras');
 
@@ -36,6 +37,7 @@ app.get('/api/tracking/:codigo', seguimientoController.trackingPublico);
 app.use('/api/dte', dteRoutes);
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/usuarios', usuariosRoutes);
+app.use('/api/notificaciones', notificacionesRoutes);
 app.use('/api', operacionesRoutes);
 app.use('/api/mock-hacienda', mockHacienda);
 app.use('/api/mock-navieras', mockNavieras);
