@@ -28,7 +28,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { api, clearSession, getStoredUser } from '../services/api';
+import { api, clearSession, getStoredUser } from '../../services/api';
 
 const emit = defineEmits(['navigate', 'session-change']);
 

@@ -23,10 +23,7 @@ const dashboardByRole = {
 const routes = [
   {
     path: '/',
-    redirect: { name: 'Home' }
-  },
-  {
-    path: '/home',
+    alias: '/home',
     name: 'Home',
     component: () => import('../views/public/HomePage.vue'),
     meta: { public: true, layout: PublicLayout }

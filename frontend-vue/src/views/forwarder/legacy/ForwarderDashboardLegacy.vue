@@ -238,9 +238,9 @@
 
 <script setup>
 import { computed, onMounted, ref, watch, nextTick } from 'vue';
-import { api, getStoredUser } from '../services/api';
+import { api, getStoredUser } from '../../../services/api';
 // Importamos la imagen del navbar
-import iconNavbar from '../assets/icon-navbar.png';
+import iconNavbar from '../../assets/icon-navbar.png';
 import Chart from 'chart.js/auto';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';

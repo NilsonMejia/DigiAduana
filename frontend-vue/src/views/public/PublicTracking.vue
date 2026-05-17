@@ -1,171 +1,108 @@
 <template>
   <main class="tracking">
-    <section class="tracking__panel">
-      <header class="tracking__header">
-        <div>
-          <p>Seguimiento público</p>
-          <h1>{{ resolvedCode || 'Consulta de expediente' }}</h1>
-        </div>
-        <RouterLink :to="{ name: 'Home' }">Nueva consulta</RouterLink>
-      </header>
+    <header class="tracking__header">
+      <div>
+        <p>Portal publico</p>
+        <h1>Seguimiento de expediente</h1>
+      </div>
+      <button type="button" @click="goToLogin">Iniciar sesion</button>
+    </header>
 
-      <form class="tracking__form" @submit.prevent="executeSearch">
+    <form class="tracking__form" novalidate @submit.prevent="search">
+      <fieldset>
+        <legend>Consulta para cliente</legend>
         <label>
-          Código de expediente
-          <input v-model.trim="searchCode" type="search" placeholder="EXP-2026-0001" />
+          Codigo de expediente
+          <input v-model.trim="codigo" :class="{ 'is-invalid': error }" type="text" placeholder="EXP-2026-000001" />
         </label>
-        <button type="submit">Buscar</button>
-      </form>
+      </fieldset>
+      <button type="submit" :disabled="loading">{{ loading ? 'Consultando...' : 'Consultar' }}</button>
+    </form>
 
-      <p v-if="loading" class="tracking__state">Consultando seguimiento...</p>
-      <p v-else-if="error" class="tracking__error">{{ error }}</p>
+    <p v-if="error" class="tracking__error">{{ error }}</p>
 
-      <article v-else-if="tracking" class="tracking__card">
-        <header class="tracking__summary">
-          <div>
-            <strong>Expediente</strong>
-            <p>{{ tracking.codigo }}</p>
-          </div>
-          <mark :class="statusClass">{{ tracking.estado }}</mark>
-        </header>
+    <section v-if="result" class="tracking__result">
+      <div class="tracking__summary">
+        <h2>{{ result.expediente.codigo }}</h2>
+        <p>{{ result.expediente.cliente }} · {{ result.expediente.tipo_operacion }}</p>
+        <mark>{{ result.expediente.estado }}</mark>
+      </div>
 
-        <dl>
-          <div>
-            <dt>Ubicación actual</dt>
-            <dd>{{ tracking.ubicacion || 'No disponible' }}</dd>
-          </div>
-          <div>
-            <dt>Creado</dt>
-            <dd>{{ formatDate(tracking.fecha_creacion) }}</dd>
-          </div>
-          <div>
-            <dt>Última actualización</dt>
-            <dd>{{ formatDate(tracking.ultima_actualizacion) }}</dd>
-          </div>
-        </dl>
-
-        <section class="tracking__events">
-          <h2>Historial público</h2>
-          <ol>
-            <li v-for="event in tracking.eventos" :key="event.evento + event.fecha_evento">
-              <strong>{{ event.evento }}</strong>
-              <span>{{ event.ubicacion }}</span>
-              <time>{{ formatDate(event.fecha_evento) }}</time>
-            </li>
-          </ol>
-        </section>
-      </article>
+      <ol class="tracking__timeline">
+        <li v-for="event in result.historial" :key="`${event.estado}-${event.creado_en}`">
+          <strong>{{ event.estado }}</strong>
+          <span>{{ event.comentario || 'Actualizacion registrada' }}</span>
+          <time>{{ formatDate(event.creado_en) }}</time>
+        </li>
+      </ol>
     </section>
   </main>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { api } from '../../services/api';
 
-const props = defineProps({
-  codigo: {
-    type: String,
-    default: ''
-  }
-});
-
-const route = useRoute();
 const router = useRouter();
+
+const codigo = ref('EXP-2026-000001');
 const loading = ref(false);
 const error = ref('');
-const tracking = ref(null);
-const searchCode = ref(props.codigo || route.params.codigo || route.query.codigo || '');
-
-const resolvedCode = computed(() => props.codigo || route.params.codigo || route.query.codigo || '');
-const statusClass = computed(() => {
-  const status = String(tracking.value?.estado || '').toLowerCase();
-  if (status.includes('entregado') || status.includes('liberado')) return 'tracking__status--ok';
-  if (status.includes('observado') || status.includes('auditoria')) return 'tracking__status--warn';
-  return 'tracking__status--neutral';
-});
+const result = ref(null);
 
 function formatDate(value) {
-  if (!value) return 'No disponible';
   return new Intl.DateTimeFormat('es-SV', {
     dateStyle: 'medium',
     timeStyle: 'short'
   }).format(new Date(value));
 }
 
-async function loadTracking(code) {
-  const lookup = code || resolvedCode.value;
-  if (!lookup) {
-    error.value = 'Ingresa un código para consultar.';
+async function search() {
+  error.value = '';
+  result.value = null;
+
+  if (codigo.value.length < 6) {
+    error.value = 'Ingresa un codigo de expediente valido.';
     return;
   }
 
   loading.value = true;
-  error.value = '';
-  tracking.value = null;
-
   try {
-    const response = await fetch(`/tracking/${encodeURIComponent(lookup)}`);
-    const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(payload?.mensaje || `Error ${response.status}`);
-    }
-
-    tracking.value = payload;
-    searchCode.value = lookup;
-  } catch (reason) {
-    error.value = reason.message || 'No se pudo obtener el seguimiento.';
+    result.value = await api(`/seguimiento/publico/${encodeURIComponent(codigo.value)}`);
+  } catch (requestError) {
+    error.value = requestError.message;
   } finally {
     loading.value = false;
   }
 }
 
-function executeSearch() {
-  if (!searchCode.value) {
-    error.value = 'Ingresa un código para buscar.';
-    return;
-  }
-  router.push({ name: 'PublicTracking', params: { codigo: searchCode.value } });
+function goToLogin() {
+  router.push({ name: 'Login' });
 }
-
-onMounted(() => {
-  if (resolvedCode.value) {
-    loadTracking(resolvedCode.value);
-  }
-});
-
-watch(resolvedCode, (code) => {
-  if (code) {
-    loadTracking(code);
-  }
-});
 </script>
 
 <style scoped>
 .tracking {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
+  width: min(100%, 58rem);
+  margin: 0 auto;
   padding: 1rem;
-  background: var(--surface-alt);
 }
 
-.tracking__panel {
-  width: min(100%, 52rem);
-  padding: 1.5rem;
+.tracking__header,
+.tracking__form,
+.tracking__result {
   border: 1px solid var(--line);
-  border-radius: 1rem;
+  border-radius: 1.25rem;
   background: var(--surface);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 16px 44px rgba(15, 23, 42, 0.08);
 }
 
 .tracking__header {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  display: grid;
   gap: 1rem;
-  margin-bottom: 1.25rem;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
 }
 
 .tracking__header p,
@@ -177,10 +114,35 @@ watch(resolvedCode, (code) => {
   color: var(--muted);
 }
 
+.tracking__header button,
+.tracking__form button {
+  padding: 0.75rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: #fff;
+  transition: transform 180ms ease, border-color 180ms ease;
+}
+
+.tracking__header button:hover,
+.tracking__form button:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
 .tracking__form {
   display: grid;
-  gap: 0.85rem;
-  margin-bottom: 1rem;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.tracking__form fieldset {
+  padding: 0;
+  border: 0;
+}
+
+.tracking__form legend {
+  margin-bottom: 0.75rem;
+  font-weight: 800;
 }
 
 .tracking__form label {
@@ -189,138 +151,87 @@ watch(resolvedCode, (code) => {
   font-weight: 700;
 }
 
-.tracking__form input,
-.tracking__form button {
-  min-height: 3rem;
-  border-radius: 0.75rem;
-}
-
 .tracking__form input {
-  border: 1px solid var(--line);
-  padding: 0 0.95rem;
-}
-
-.tracking__form button {
-  width: fit-content;
-  border: 0;
-  background: var(--primary);
-  color: #fff;
-  font-weight: 700;
-  padding: 0 1.25rem;
-}
-
-.tracking__state,
-.tracking__error {
-  margin: 0;
-}
-
-.tracking__error {
-  color: var(--danger);
-}
-
-.tracking__card {
-  display: grid;
-  gap: 1rem;
-}
-
-.tracking__summary {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-}
-
-.tracking__summary strong {
-  display: block;
-  color: var(--muted);
-  font-size: 0.95rem;
-}
-
-.tracking__summary p {
-  margin: 0.25rem 0 0;
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
-.tracking__card mark {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.55rem 0.95rem;
-  border-radius: 999px;
-  font-weight: 700;
-  background: rgba(59, 130, 246, 0.12);
-  color: var(--primary-dark);
-}
-
-.tracking__status--ok {
-  background: rgba(16, 185, 129, 0.15);
-  color: #047857;
-}
-
-.tracking__status--warn {
-  background: rgba(245, 158, 11, 0.15);
-  color: #92400e;
-}
-
-.tracking__status--neutral {
-  background: rgba(148, 163, 184, 0.15);
-  color: #334155;
-}
-
-.tracking dl {
-  display: grid;
-  gap: 0.9rem;
-  margin: 0;
-}
-
-.tracking dt {
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-.tracking dd {
-  margin: 0.2rem 0 0;
-  font-weight: 700;
-}
-
-.tracking__events h2 {
-  margin: 0 0 0.75rem;
-}
-
-.tracking__events ol {
-  display: grid;
-  gap: 0.8rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.tracking__events li {
-  padding: 1rem;
+  padding: 0.8rem 0.9rem;
   border: 1px solid var(--line);
   border-radius: 0.85rem;
 }
 
-.tracking__events strong {
-  display: block;
-  margin-bottom: 0.35rem;
+.tracking__form input:focus {
+  outline: 0;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.14);
 }
 
-.tracking__events span,
-.tracking__events time {
+.tracking__form .is-invalid {
+  border-color: var(--danger);
+}
+
+.tracking__form button {
+  color: #fff;
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.tracking__error {
+  padding: 1rem;
+  color: var(--danger);
+  border-radius: 0.9rem;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.tracking__result {
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.tracking__summary h2,
+.tracking__summary p {
+  margin: 0;
+}
+
+.tracking__summary p {
+  color: var(--muted);
+}
+
+.tracking__summary mark {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  color: var(--primary-dark);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.tracking__timeline {
+  display: grid;
+  gap: 0.85rem;
+  padding-left: 1.25rem;
+  margin: 1.25rem 0 0;
+}
+
+.tracking__timeline li {
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: #f8fafc;
+}
+
+.tracking__timeline span,
+.tracking__timeline time {
   display: block;
   color: var(--muted);
-  font-size: 0.92rem;
 }
 
-@media (min-width: 680px) {
+@media (min-width: 768px) {
+  .tracking {
+    padding: 1.5rem;
+  }
+
+  .tracking__header,
   .tracking__form {
     grid-template-columns: 1fr auto;
     align-items: end;
-  }
-
-  .tracking dl {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

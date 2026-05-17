@@ -120,7 +120,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
-import { api } from '../services/api';
+import { api } from '../../../services/api';
 
 defineEmits(['navigate']);
 
