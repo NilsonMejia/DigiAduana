@@ -62,11 +62,13 @@ const menusByRole = {
     { label: 'Expedientes', name: 'ForwarderExpedientes', icon: 'fas fa-folder-open' },
     { label: 'Nuevo tramite', name: 'ForwarderExpedienteCreate', icon: 'fas fa-plus' },
     { label: 'Gestion documental', name: 'ForwarderDocuments', icon: 'fas fa-file-shield' },
+    { label: 'Notificaciones', name: 'ForwarderNotifications', icon: 'fas fa-bell' },
     { label: 'Facturacion DTE', name: 'ForwarderFacturacionDTE', icon: 'fas fa-file-invoice-dollar' }
   ],
   supervisor: [
     { label: 'Dashboard gerencial', name: 'SupervisorDashboard', icon: 'fas fa-gauge' },
-    { label: 'Reportes operativos', name: 'SupervisorReportes', icon: 'fas fa-chart-column' }
+    { label: 'Reportes operativos', name: 'SupervisorReportes', icon: 'fas fa-chart-column' },
+    { label: 'Notificaciones', name: 'SupervisorNotifications', icon: 'fas fa-bell' }
   ],
   cliente: [
     { label: 'Mi carga', name: 'ClienteDashboard', icon: 'fas fa-location-dot' },
@@ -75,6 +77,7 @@ const menusByRole = {
   soporte: [
     { label: 'Incidentes', name: 'SoporteIncidentes', icon: 'fas fa-triangle-exclamation' },
     { label: 'Sesiones activas', name: 'SoporteSesiones', icon: 'fas fa-user-clock' },
+    { label: 'Notificaciones', name: 'SoporteNotifications', icon: 'fas fa-bell' },
     { label: 'Infraestructura', name: 'SoporteInfraestructura', icon: 'fas fa-server' }
   ]
 };

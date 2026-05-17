@@ -131,14 +131,16 @@ async function submit() {
 .form-page {
   width: min(100%, 64rem);
   margin: 0 auto;
+  color: #e2e8f0;
 }
 
 .form-page__header,
 .form-page__form {
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.11);
   border-radius: 1rem;
-  background: var(--surface);
-  box-shadow: 0 16px 44px rgba(15, 23, 42, 0.08);
+  background: rgba(15, 25, 45, 0.72);
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(16px);
 }
 
 .form-page__header {
@@ -154,15 +156,20 @@ async function submit() {
 }
 
 .form-page__header p {
-  color: var(--muted);
+  color: #94a3b8;
+}
+
+.form-page__header h1 {
+  color: #fff;
 }
 
 .form-page__header button,
 .form-page__footer button {
   padding: 0.75rem 0.95rem;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 0.75rem;
-  background: #fff;
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .form-page__form {
@@ -178,6 +185,7 @@ async function submit() {
 
 .form-page__form legend {
   margin-bottom: 0.75rem;
+  color: #fff;
   font-size: 1.25rem;
   font-weight: 800;
 }
@@ -185,6 +193,7 @@ async function submit() {
 .form-page__form label {
   display: grid;
   gap: 0.45rem;
+  color: #dbeafe;
   font-weight: 700;
 }
 
@@ -193,8 +202,15 @@ async function submit() {
 .form-page__form textarea {
   width: 100%;
   padding: 0.8rem 0.9rem;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 0.75rem;
+  color: #e2e8f0;
+  background: rgba(3, 7, 18, 0.5);
+}
+
+.form-page__form input::placeholder,
+.form-page__form textarea::placeholder {
+  color: #94a3b8;
 }
 
 .form-page__form .is-invalid {
@@ -207,7 +223,7 @@ async function submit() {
 }
 
 .form-page__message {
-  color: #047857;
+  color: #86efac;
 }
 
 .form-page__footer {

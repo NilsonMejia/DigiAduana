@@ -139,6 +139,12 @@ const routes = [
         meta: { title: 'Gestion documental' }
       },
       {
+        path: 'notificaciones',
+        name: 'ForwarderNotifications',
+        component: () => import('../views/admin/AdminNotifications.vue'),
+        meta: { title: 'Notificaciones' }
+      },
+      {
         path: 'facturacion-dte',
         name: 'ForwarderFacturacionDTE',
         component: () => import('../views/forwarder/FacturacionDTE.vue'),
@@ -190,6 +196,12 @@ const routes = [
         name: 'SupervisorDocuments',
         component: () => import('../views/forwarder/DocumentManagement.vue'),
         meta: { title: 'Validacion documental' }
+      },
+      {
+        path: 'notificaciones',
+        name: 'SupervisorNotifications',
+        component: () => import('../views/admin/AdminNotifications.vue'),
+        meta: { title: 'Notificaciones' }
       },
       {
         path: 'facturacion-dte',
@@ -246,6 +258,12 @@ const routes = [
         name: 'SoporteInfraestructura',
         component: () => import('../views/soporte/Infraestructura.vue'),
         meta: { title: 'Infraestructura' }
+      },
+      {
+        path: 'notificaciones',
+        name: 'SoporteNotifications',
+        component: () => import('../views/admin/AdminNotifications.vue'),
+        meta: { title: 'Notificaciones' }
       }
     ]
   },

@@ -5,7 +5,10 @@ const audit = require('../utils/audit');
 
 exports.listar = asyncHandler(async (req, res) => {
   const [rows] = await pool.query(
-    `SELECT d.*, e.codigo AS expediente_codigo, c.nombre AS cliente
+    `SELECT d.id, d.expediente_id, d.cliente_id, d.tipo_dte, d.numero_control,
+            d.codigo_generacion, d.sello_recepcion, d.total_gravado, d.total_iva,
+            d.total, d.estado, d.creado_en, d.validado_en, d.observaciones,
+            e.codigo AS expediente_codigo, c.nombre AS cliente
      FROM dte d
      JOIN expedientes_aduanales e ON e.id = d.expediente_id
      JOIN clientes c ON c.id = d.cliente_id

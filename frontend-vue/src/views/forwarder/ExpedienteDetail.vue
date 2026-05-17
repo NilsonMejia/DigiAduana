@@ -55,6 +55,8 @@
 <script setup>
 import { onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { api } from '../../services/api';
+import { useAuthStore } from '../../stores/authStore';
 
 const props = defineProps({
   id: {
@@ -64,6 +66,7 @@ const props = defineProps({
 });
 
 const router = useRouter();
+const auth = useAuthStore();
 const loading = ref(false);
 const error = ref('');
 const expediente = ref(null);
@@ -82,14 +85,7 @@ async function loadExpediente() {
   expediente.value = null;
 
   try {
-    const response = await fetch(`/expedientes/${encodeURIComponent(props.id)}`);
-    const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(payload?.mensaje || `Expediente no encontrado (${props.id})`);
-    }
-
-    expediente.value = payload;
+    expediente.value = await api(`/expedientes/${encodeURIComponent(props.id)}`);
   } catch (reason) {
     error.value = reason.message || 'No se pudo cargar el expediente.';
   } finally {
@@ -98,7 +94,7 @@ async function loadExpediente() {
 }
 
 function goBack() {
-  router.push({ name: 'ForwarderExpedientes' });
+  router.push({ name: auth.userRole === 'supervisor' ? 'SupervisorExpedientes' : 'ForwarderExpedientes' });
 }
 
 onMounted(loadExpediente);
@@ -109,16 +105,18 @@ watch(() => props.id, loadExpediente);
 .detail {
   width: min(100%, 64rem);
   margin: 0 auto;
+  color: #e2e8f0;
 }
 
 .detail__header,
 .detail__card,
 .detail__state,
 .detail__error {
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.11);
   border-radius: 1rem;
-  background: var(--surface);
-  box-shadow: 0 16px 44px rgba(15, 23, 42, 0.08);
+  background: rgba(15, 25, 45, 0.72);
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(16px);
 }
 
 .detail__header {
@@ -134,14 +132,19 @@ watch(() => props.id, loadExpediente);
 }
 
 .detail__header p {
-  color: var(--muted);
+  color: #94a3b8;
+}
+
+.detail__header h1 {
+  color: #fff;
 }
 
 .detail__header button {
   padding: 0.85rem 1rem;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 0.85rem;
-  background: #fff;
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.08);
   cursor: pointer;
 }
 
@@ -164,12 +167,12 @@ watch(() => props.id, loadExpediente);
   padding: 0.45rem 0.85rem;
   border-radius: 999px;
   background: rgba(59, 130, 246, 0.12);
-  color: var(--primary-dark);
+  color: #bfdbfe;
   font-weight: 700;
 }
 
 .detail__status span {
-  color: var(--muted);
+  color: #94a3b8;
 }
 
 .detail dl {
@@ -179,7 +182,7 @@ watch(() => props.id, loadExpediente);
 }
 
 .detail dt {
-  color: var(--muted);
+  color: #94a3b8;
   font-size: 0.85rem;
 }
 
@@ -190,7 +193,7 @@ watch(() => props.id, loadExpediente);
 
 .detail__notes {
   padding-top: 1rem;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
 }
 
 .detail__notes h2,
@@ -200,7 +203,7 @@ watch(() => props.id, loadExpediente);
 
 .detail__notes p {
   margin-top: 0.55rem;
-  color: var(--muted);
+  color: #94a3b8;
 }
 
 .detail__error {

@@ -21,7 +21,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/authStore';
 import { api } from '../../services/api';
@@ -50,9 +50,18 @@ const roleLabels = {
 };
 
 const roleLabel = computed(() => roleLabels[auth.userRole] || 'Usuario');
+const notificationRoutes = {
+  admin: 'AdminNotifications',
+  forwarder: 'ForwarderNotifications',
+  supervisor: 'SupervisorNotifications',
+  soporte: 'SoporteNotifications'
+};
 
 async function loadNotificationsCount() {
-  if (auth.userRole !== 'admin') return;
+  if (!notificationRoutes[auth.userRole]) {
+    notificationCount.value = 0;
+    return;
+  }
   try {
     const response = await api('/notificaciones');
     notificationCount.value = Number(response.total ?? response.data?.length ?? response.length ?? 0);
@@ -62,9 +71,8 @@ async function loadNotificationsCount() {
 }
 
 function goToNotifications() {
-  if (auth.userRole === 'admin') {
-    router.push({ name: 'AdminNotifications' });
-  }
+  const routeName = notificationRoutes[auth.userRole];
+  if (routeName) router.push({ name: routeName });
 }
 
 function logout() {
@@ -73,6 +81,7 @@ function logout() {
 }
 
 onMounted(loadNotificationsCount);
+watch(() => auth.userRole, loadNotificationsCount);
 </script>
 
 <style scoped>

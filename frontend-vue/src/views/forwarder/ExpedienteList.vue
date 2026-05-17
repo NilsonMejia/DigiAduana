@@ -113,15 +113,17 @@ onMounted(loadExpedientes);
 .list {
   width: min(100%, 72rem);
   margin: 0 auto;
+  color: #e2e8f0;
 }
 
 .list__header,
 .list__filters,
 .list__table {
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.11);
   border-radius: 1rem;
-  background: var(--surface);
-  box-shadow: 0 16px 44px rgba(15, 23, 42, 0.08);
+  background: rgba(15, 25, 45, 0.72);
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(16px);
 }
 
 .list__header {
@@ -136,7 +138,11 @@ onMounted(loadExpedientes);
 }
 
 .list__header p {
-  color: var(--muted);
+  color: #94a3b8;
+}
+
+.list__header h1 {
+  color: #fff;
 }
 
 .list__actions {
@@ -148,13 +154,14 @@ onMounted(loadExpedientes);
 .list__actions button,
 .list__filters input,
 .list__filters select {
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 0.75rem;
 }
 
 .list__actions button {
   padding: 0.75rem 0.95rem;
-  background: #fff;
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .list__primary {
@@ -173,12 +180,19 @@ onMounted(loadExpedientes);
 .list__filters label {
   display: grid;
   gap: 0.45rem;
+  color: #dbeafe;
   font-weight: 700;
 }
 
 .list__filters input,
 .list__filters select {
   padding: 0.8rem 0.9rem;
+  color: #e2e8f0;
+  background: rgba(3, 7, 18, 0.5);
+}
+
+.list__filters input::placeholder {
+  color: #94a3b8;
 }
 
 .list__table {
@@ -191,23 +205,33 @@ onMounted(loadExpedientes);
   display: grid;
   gap: 0.75rem;
   padding: 0.95rem;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 0.75rem;
-  background: #f8fafc;
+  background: rgba(3, 7, 18, 0.42);
   cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.list__row:hover {
+  border-color: rgba(96, 165, 250, 0.45);
+  transform: translateY(-2px);
+}
+
+.list__row strong {
+  color: #fff;
 }
 
 .list__row span,
 .list__row small {
   display: block;
-  color: var(--muted);
+  color: #94a3b8;
 }
 
 .list__row mark {
   width: max-content;
   padding: 0.3rem 0.65rem;
   border-radius: 999px;
-  color: var(--primary-dark);
+  color: #bfdbfe;
   background: rgba(59, 130, 246, 0.12);
 }
 
@@ -220,6 +244,11 @@ onMounted(loadExpedientes);
 .list__error {
   color: var(--danger);
   background: rgba(220, 38, 38, 0.08);
+}
+
+.list__empty {
+  color: #bfdbfe;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 @media (min-width: 640px) {

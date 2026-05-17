@@ -457,7 +457,7 @@ router.get('/logs', authenticate, authorize(ROLES.ADMIN, ROLES.SOPORTE), (req, r
   });
 });
 
-router.get('/notificaciones', authenticate, authorize(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.SOPORTE), (req, res) => {
+router.get('/notificaciones', authenticate, authorize(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.FORWARDER, ROLES.SOPORTE), (req, res) => {
   const expedientes = visibleExpedientes(req.user);
   const observados = expedientes.filter((item) => item.estado === 'Observado').slice(0, 5);
   const documentosPendientes = visibleDocumentos(req.user).filter((item) => item.estado !== 'APROBADO').slice(0, 6);
@@ -546,10 +546,16 @@ router.get('/dte', authenticate, (req, res) => {
     expediente: item.codigo,
     cliente: findCliente(item.cliente_id)?.nombre || 'Cliente',
     tipo: index % 2 === 0 ? 'FACTURA' : 'COMPROBANTE_CREDITO_FISCAL',
+    tipo_dte: index % 2 === 0 ? 'FACTURA' : 'COMPROBANTE_CREDITO_FISCAL',
     numero_control: `DTE-${String(index + 1).padStart(8, '0')}`,
+    codigo_generacion: `MOCK-${item.codigo}-${String(index + 1).padStart(4, '0')}`,
+    sello_recepcion: index % 3 === 1 ? `SELLO-${item.codigo}` : null,
     estado: ['EMITIDO', 'VALIDADO', 'RECHAZADO'][index % 3],
+    total_gravado: Number((item.valor_fob * 0.0106).toFixed(2)),
+    total_iva: Number((item.valor_fob * 0.0014).toFixed(2)),
     total: Number((item.valor_fob * 0.012).toFixed(2)),
-    fecha: item.fecha_actualizacion
+    fecha: item.fecha_actualizacion,
+    creado_en: item.fecha_actualizacion
   }));
   res.json({ data, total: data.length });
 });
