@@ -156,6 +156,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/authStore';
+import { api } from '../../services/api';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -180,8 +181,8 @@ async function trackShipment() {
   if (!trackingCode.value.trim()) {
     trackingResult.value = {
       error: true,
-      title: 'Código no ingresado',
-      message: 'Por favor ingresa un código de seguimiento válido.'
+      title: 'Codigo no ingresado',
+      message: 'Por favor ingresa un codigo de seguimiento valido.'
     };
     return;
   }
@@ -189,28 +190,30 @@ async function trackShipment() {
   trackingLoading.value = true;
   trackingResult.value = null;
 
-  setTimeout(() => {
+  try {
     const code = trackingCode.value.trim().toUpperCase();
-    if (code === 'EXP-001' || code === 'MAEU1234567') {
-      trackingResult.value = {
-        error: false,
-        title: 'Expediente encontrado',
-        message: 'Tu carga está en tránsito.',
-        details: {
-          fecha: '2026-05-15',
-          ubicacion: 'Puerto de Acajutla',
-          estado: 'En proceso de despacho'
-        }
-      };
-    } else {
-      trackingResult.value = {
-        error: true,
-        title: 'No encontrado',
-        message: 'No se encontró ninguna carga con ese código. Verifica el número e intenta nuevamente.'
-      };
-    }
+    const response = await api(`/tracking/${encodeURIComponent(code)}`);
+    const tracking = response.expediente || response;
+    const event = response.eventos?.at?.(-1) || response.historial?.at?.(-1) || {};
+    trackingResult.value = {
+      error: false,
+      title: 'Expediente encontrado',
+      message: `Tu carga esta en estado ${tracking.estado_actual || tracking.estado}.`,
+      details: {
+        fecha: new Date(tracking.ultima_actualizacion || tracking.fecha_creacion || event.fecha_evento || event.creado_en).toLocaleDateString(),
+        ubicacion: tracking.ubicacion || event.ubicacion || 'En actualizacion',
+        estado: tracking.estado_actual || tracking.estado
+      }
+    };
+  } catch (error) {
+    trackingResult.value = {
+      error: true,
+      title: 'No encontrado',
+      message: error.message || 'No se encontro ninguna carga con ese codigo. Verifica el numero e intenta nuevamente.'
+    };
+  } finally {
     trackingLoading.value = false;
-  }, 800);
+  }
 }
 </script>
 

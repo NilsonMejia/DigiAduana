@@ -18,7 +18,7 @@ import Header from '../components/common/Header.vue';
 <style scoped>
 .app-layout {
   min-height: 100vh;
-  background: var(--surface-alt);
+  background: radial-gradient(circle at 10% 20%, #0b1120, #030712);
 }
 
 .app-layout__body {

@@ -1,0 +1,203 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;500;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap');
+
+.premium-page {
+  min-height: calc(100vh - 5rem);
+  position: relative;
+  overflow: hidden;
+  padding: clamp(1rem, 2vw, 2rem);
+  color: #e2e8f0;
+  background: radial-gradient(circle at 10% 20%, #0b1120, #030712);
+  font-family: Inter, sans-serif;
+}
+
+.premium-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 70% 20%, rgba(59, 130, 246, 0.16), transparent 34rem),
+    radial-gradient(circle at 16% 85%, rgba(14, 165, 233, 0.10), transparent 28rem);
+  animation: premiumPulse 9s ease-in-out infinite alternate;
+}
+
+@keyframes premiumPulse {
+  from { opacity: 0.65; transform: scale(1); }
+  to { opacity: 1; transform: scale(1.04); }
+}
+
+.premium-content {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.premium-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.premium-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.65rem;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  border-radius: 999px;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.14);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.premium-title {
+  margin: 0;
+  color: #fff;
+  font-family: "Space Grotesk", Inter, sans-serif;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  line-height: 1;
+}
+
+.premium-subtitle {
+  max-width: 720px;
+  margin: 0.65rem 0 0;
+  color: #94a3b8;
+}
+
+.premium-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+}
+
+.premium-card,
+.premium-panel {
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 1.25rem;
+  background: rgba(15, 25, 45, 0.58);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(16px);
+}
+
+.premium-card {
+  padding: 1.15rem;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.premium-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(96, 165, 250, 0.45);
+}
+
+.premium-card__icon {
+  width: 2.8rem;
+  height: 2.8rem;
+  display: grid;
+  place-items: center;
+  margin-bottom: 0.9rem;
+  border-radius: 1rem;
+  color: #bfdbfe;
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.95), rgba(59, 130, 246, 0.85));
+}
+
+.premium-card strong {
+  display: block;
+  color: #fff;
+  font-size: 1.6rem;
+}
+
+.premium-card span,
+.premium-card p,
+.premium-muted {
+  color: #94a3b8;
+}
+
+.premium-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.premium-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.premium-table th,
+.premium-table td {
+  padding: 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+}
+
+.premium-table th {
+  color: #93c5fd;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.premium-table td {
+  color: #dbeafe;
+}
+
+.premium-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.75rem 1rem;
+  color: #fff;
+  font-weight: 800;
+  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+  box-shadow: 0 10px 28px rgba(59, 130, 246, 0.28);
+}
+
+.premium-btn--ghost {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+
+.premium-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  color: #bfdbfe;
+  background: rgba(59, 130, 246, 0.16);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.premium-empty,
+.premium-error {
+  padding: 1rem;
+  border-radius: 1rem;
+  color: #bfdbfe;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.premium-error {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.14);
+}
+
+@media (max-width: 760px) {
+  .premium-table {
+    min-width: 680px;
+  }
+
+  .premium-panel {
+    overflow-x: auto;
+  }
+}

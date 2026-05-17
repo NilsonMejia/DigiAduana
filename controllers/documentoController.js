@@ -2,6 +2,27 @@ const pool = require('../config/db');
 const asyncHandler = require('../utils/asyncHandler');
 const audit = require('../utils/audit');
 
+exports.listar = asyncHandler(async (req, res) => {
+  const [rows] = await pool.query(
+    `SELECT d.*, e.codigo AS expediente
+     FROM documentos d
+     JOIN expedientes_aduanales e ON e.id = d.expediente_id
+     ORDER BY d.creado_en DESC`
+  );
+  res.json({
+    data: rows.map((row) => ({
+      id: row.id,
+      expediente_id: row.expediente_id,
+      expediente: row.expediente,
+      tipo: row.tipo_documento,
+      nombre: row.nombre_original,
+      estado: row.estado_validacion,
+      url: row.ruta_archivo,
+      fecha_carga: row.creado_en
+    }))
+  });
+});
+
 exports.listarPorExpediente = asyncHandler(async (req, res) => {
   const [rows] = await pool.query(
     'SELECT * FROM documentos WHERE expediente_id = ? ORDER BY creado_en DESC',

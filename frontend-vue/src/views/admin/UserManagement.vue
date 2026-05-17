@@ -294,8 +294,9 @@ function isActive(user) {
 function normalizeUser(user) {
   return {
     ...user,
+    id: user.id || user.id_usuario,
     rol: user.actor || normalizeRole(user.rol),
-    estado: normalizeStatus(user.estado)
+    estado: normalizeStatus(user.estado || (user.activo ? 'ACTIVO' : 'INACTIVO'))
   };
 }
 
@@ -352,7 +353,7 @@ async function loadUsers() {
   loading.value = true;
   try {
     const response = await api('/usuarios');
-    users.value = response.map(normalizeUser);
+    users.value = (response.data || response).map(normalizeUser);
   } catch (error) {
     console.error('Error al cargar usuarios:', error);
     // Datos mock en caso de error

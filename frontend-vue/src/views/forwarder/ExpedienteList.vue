@@ -97,7 +97,8 @@ async function loadExpedientes() {
   loading.value = true;
   error.value = '';
   try {
-    expedientes.value = await api('/expedientes');
+    const response = await api('/expedientes?limit=100');
+    expedientes.value = response.data || response;
   } catch (requestError) {
     error.value = requestError.message;
   } finally {

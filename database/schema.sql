@@ -210,9 +210,18 @@ SELECT 5, id FROM permisos WHERE codigo IN ('reportes.ver','tracking.ver');
 INSERT INTO clientes (id, nombre, tipo_persona, nit, nrc, giro, direccion, telefono, correo, contacto_principal) VALUES
 (1, 'Importadora Cuscatlan S.A. de C.V.', 'JURIDICA', '0614-010190-101-3', '123456-7', 'Importacion y distribucion', 'San Salvador, El Salvador', '+503 2200-0000', 'logistica@cuscatlan.test', 'Ana Martinez');
 
--- Usuario administrador inicial. Credenciales: admin@digiaduana.local / password
-INSERT INTO usuarios (id, nombre, correo, password_hash, rol_id, estado, email_verificado) VALUES
-(1, 'Administrador DigiAduana', 'admin@digiaduana.local', '$2b$10$QP6Hvb4EjmtRl6vVl6w/feNtRCJ8fThN.PBjiEggEzH4lRnpYaUCC', 1, 'ACTIVO', 1);
+-- Credenciales iniciales:
+-- admin@digiaduana.local / admin123
+-- forwarder@digiaduana.local / forwarder123
+-- supervisor@digiaduana.local / supervisor123
+-- cliente@digiaduana.local / cliente123
+-- soporte@digiaduana.local / soporte123
+INSERT INTO usuarios (id, nombre, correo, password_hash, rol_id, cliente_id, estado, email_verificado) VALUES
+(1, 'Administrador DigiAduana', 'admin@digiaduana.local', '$2b$10$sALxvVESs/nVAM/UekGOC.I3rXCK58xyTp8VAKKt9S6Tjft8K2pQe', 1, NULL, 'ACTIVO', 1),
+(2, 'Valeria Menendez', 'forwarder@digiaduana.local', '$2b$10$WxOtuMOscRPFywBH/K7Zt./D1ixSfq2zA06.jgzHe/sWDQnjJfIEW', 3, NULL, 'ACTIVO', 1),
+(3, 'Mario Escobar', 'supervisor@digiaduana.local', '$2b$10$9Y1Za61tGQHNbUGYA8Af3eZCc9expgWiYTqeFBXZsAn5ma/tyLydi', 2, NULL, 'ACTIVO', 1),
+(4, 'Ana Morales', 'cliente@digiaduana.local', '$2b$10$hLHaDXBrZ4nXaCmjvZLhXeGURlXG0QIGO1CppS2.Ad5M2kpOnqzt6', 4, 1, 'ACTIVO', 1),
+(5, 'Diego Guardado', 'soporte@digiaduana.local', '$2b$10$suk0oGjlahZCXR9uqhbwMuU9sM7Jf9D4EmFU/ZX4WwLJtLcK39wYK', 5, NULL, 'ACTIVO', 1);
 
 INSERT INTO expedientes_aduanales
 (id, codigo, cliente_id, tipo_operacion, regimen, aduana_ingreso, aduana_salida, descripcion, responsable_id, estado)

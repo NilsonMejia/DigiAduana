@@ -38,7 +38,7 @@ const PORT = Number(process.env.MOCK_PORT || 3000);
 const JWT_SECRET = process.env.MOCK_JWT_SECRET || 'digiaduana-secret-key';
 const MIN_DELAY = Number(process.env.MOCK_MIN_DELAY || 200);
 const MAX_DELAY = Number(process.env.MOCK_MAX_DELAY || 800);
-const ERROR_RATE = Number(process.env.MOCK_ERROR_RATE ?? 0.05);
+const ERROR_RATE = Number(process.env.MOCK_ERROR_RATE ?? 0);
 const CACHE_TTL_MS = 10_000;
 
 const ROLES = Object.freeze({
@@ -57,6 +57,14 @@ const ESTADOS = [
   'Liberado',
   'Entregado'
 ];
+
+const ROLE_PERMISSIONS = Object.freeze({
+  [ROLES.ADMIN]: ['usuarios.gestionar', 'reportes.ver', 'tracking.ver', 'configuracion.gestionar', 'logs.ver'],
+  [ROLES.FORWARDER]: ['expedientes.crear', 'documentos.subir', 'dte.emitir', 'tracking.ver'],
+  [ROLES.SUPERVISOR]: ['expedientes.aprobar', 'documentos.validar', 'dte.validar', 'reportes.ver', 'tracking.ver'],
+  [ROLES.CLIENTE]: ['tracking.ver', 'facturas.ver'],
+  [ROLES.SOPORTE]: ['logs.ver', 'infraestructura.ver', 'sesiones.ver']
+});
 
 const TIPOS_OPERACION = ['IMPORTACION', 'EXPORTACION', 'TRANSITO', 'REEXPORTACION'];
 const UBICACIONES = [
@@ -118,6 +126,8 @@ router.post('/auth/login', (req, res) => {
       nombre: user.nombre,
       correo: user.correo,
       rol: user.rol,
+      actor: user.rol,
+      permisos: ROLE_PERMISSIONS[user.rol] || [],
       cliente_id: user.cliente_id || null
     },
     JWT_SECRET,
@@ -343,6 +353,17 @@ router.get('/usuarios', authenticate, authorize(ROLES.ADMIN), (req, res) => {
   res.json({ data, total: data.length });
 });
 
+router.get('/usuarios/roles', authenticate, authorize(ROLES.ADMIN), (req, res) => {
+  res.json(
+    Object.values(ROLES).map((rol, index) => ({
+      id: index + 1,
+      nombre: rol.toUpperCase(),
+      actor: rol,
+      descripcion: roleLabel(rol)
+    }))
+  );
+});
+
 router.post('/usuarios', authenticate, authorize(ROLES.ADMIN), (req, res) => {
   const { nombre, correo, password, rol, cliente_id } = req.body;
 
@@ -374,7 +395,53 @@ router.post('/usuarios', authenticate, authorize(ROLES.ADMIN), (req, res) => {
   res.status(201).json(publicUser(user));
 });
 
-router.get('/logs', authenticate, authorize(ROLES.SOPORTE), (req, res) => {
+router.patch('/usuarios/:id', authenticate, authorize(ROLES.ADMIN), (req, res) => {
+  const user = db.usuarios.find((item) => String(item.id_usuario) === String(req.params.id) || String(item.id) === String(req.params.id));
+  if (!user) return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
+
+  const { nombre, correo, password, rol, estado, activo } = req.body;
+  if (nombre !== undefined) user.nombre = String(nombre);
+  if (correo !== undefined) user.correo = String(correo);
+  if (password) user.password_hash = bcrypt.hashSync(String(password), 8);
+  if (rol !== undefined) {
+    if (!Object.values(ROLES).includes(rol)) return res.status(400).json({ mensaje: 'Rol no permitido.' });
+    user.rol = rol;
+  }
+  if (estado !== undefined) user.activo = String(estado).toLowerCase() === 'activo';
+  if (activo !== undefined) user.activo = Boolean(activo);
+
+  addAuditLog('usuarios.update', req.user.id_usuario, `Actualizado usuario ${user.correo}`);
+  res.json(publicUser(user));
+});
+
+router.put('/usuarios/:id', authenticate, authorize(ROLES.ADMIN), (req, res) => {
+  const user = db.usuarios.find((item) => String(item.id_usuario) === String(req.params.id) || String(item.id) === String(req.params.id));
+  if (!user) return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
+
+  const { nombre, correo, password, rol, estado, activo } = req.body;
+  if (nombre !== undefined) user.nombre = String(nombre);
+  if (correo !== undefined) user.correo = String(correo);
+  if (password) user.password_hash = bcrypt.hashSync(String(password), 8);
+  if (rol !== undefined) {
+    if (!Object.values(ROLES).includes(rol)) return res.status(400).json({ mensaje: 'Rol no permitido.' });
+    user.rol = rol;
+  }
+  if (estado !== undefined) user.activo = String(estado).toLowerCase() === 'activo';
+  if (activo !== undefined) user.activo = Boolean(activo);
+
+  addAuditLog('usuarios.update', req.user.id_usuario, `Actualizado usuario ${user.correo}`);
+  res.json(publicUser(user));
+});
+
+router.delete('/usuarios/:id', authenticate, authorize(ROLES.ADMIN), (req, res) => {
+  const user = db.usuarios.find((item) => String(item.id_usuario) === String(req.params.id) || String(item.id) === String(req.params.id));
+  if (!user) return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
+  user.activo = false;
+  addAuditLog('usuarios.disable', req.user.id_usuario, `Desactivado usuario ${user.correo}`);
+  res.json({ mensaje: 'Usuario desactivado.', usuario: publicUser(user) });
+});
+
+router.get('/logs', authenticate, authorize(ROLES.ADMIN, ROLES.SOPORTE), (req, res) => {
   const limit = clamp(req.query.limit, 1, 200, 50);
   const offset = clamp(req.query.offset, 0, requestLogs.length, 0);
   const data = requestLogs.slice().reverse().slice(offset, offset + limit);
@@ -388,6 +455,103 @@ router.get('/logs', authenticate, authorize(ROLES.SOPORTE), (req, res) => {
       hasMore: offset + limit < requestLogs.length
     }
   });
+});
+
+router.get('/notificaciones', authenticate, authorize(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.SOPORTE), (req, res) => {
+  const expedientes = visibleExpedientes(req.user);
+  const observados = expedientes.filter((item) => item.estado === 'Observado').slice(0, 5);
+  const documentosPendientes = visibleDocumentos(req.user).filter((item) => item.estado !== 'APROBADO').slice(0, 6);
+  const data = [
+    ...observados.map((item) => ({
+      id: `obs-${item.id}`,
+      tipo: 'warning',
+      titulo: `Expediente observado ${item.codigo}`,
+      mensaje: `${findCliente(item.cliente_id)?.nombre || 'Cliente'} requiere seguimiento documental.`,
+      fecha: item.fecha_actualizacion
+    })),
+    ...documentosPendientes.map((item) => ({
+      id: `doc-${item.id}`,
+      tipo: item.estado === 'OBSERVADO' ? 'danger' : 'info',
+      titulo: `Documento ${item.estado.toLowerCase()}`,
+      mensaje: `${item.tipo} en ${findExpediente(item.expediente_id)?.codigo || 'expediente'}`,
+      fecha: item.fecha_carga
+    }))
+  ].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+  res.json({ data, total: data.length });
+});
+
+router.get('/configuracion', authenticate, authorize(ROLES.ADMIN), (req, res) => {
+  res.json({
+    sistema: {
+      nombre: 'DigiAduana',
+      entorno: 'simulacion',
+      version: '1.0.0',
+      retencion_logs_dias: 90,
+      max_pdf_mb: 10
+    },
+    integraciones: [
+      integration('Ministerio de Hacienda', 'online', 120, 360),
+      integration('Navieras', 'online', 220, 760),
+      integration('Correo transaccional', 'degradado', 180, 620)
+    ],
+    parametros: [
+      { clave: 'jwt_expiracion', valor: '8h' },
+      { clave: 'tracking_publico', valor: 'activo' },
+      { clave: 'validacion_correo', valor: 'activa' }
+    ]
+  });
+});
+
+router.get('/backups', authenticate, authorize(ROLES.ADMIN), (req, res) => {
+  const data = Array.from({ length: 8 }, (_, index) => ({
+    id: index + 1,
+    nombre: `backup-digiaduana-${String(index + 1).padStart(2, '0')}.sql.gz`,
+    estado: index === 0 ? 'COMPLETADO' : index === 3 ? 'ADVERTENCIA' : 'COMPLETADO',
+    tamano_mb: 280 + index * 34,
+    fecha: relativeDate(index * 2 + 1).toISOString(),
+    retencion_dias: 30
+  }));
+  res.json({ data, total: data.length, proximo: addDays(new Date(), 1).toISOString() });
+});
+
+router.get('/sesiones', authenticate, authorize(ROLES.ADMIN, ROLES.SOPORTE), (req, res) => {
+  const data = db.usuarios
+    .filter((item) => item.activo)
+    .map((item, index) => ({
+      id: index + 1,
+      usuario: item.nombre,
+      correo: item.correo,
+      rol: item.rol,
+      ip: `192.168.1.${20 + index}`,
+      inicio: relativeDate(index).toISOString(),
+      expira_en_min: 35 + index * 8
+    }));
+  res.json({ data, total: data.length });
+});
+
+router.get('/documentos', authenticate, (req, res) => {
+  const data = visibleDocumentos(req.user).map((doc) => ({
+    ...doc,
+    expediente: findExpediente(doc.expediente_id)?.codigo || ''
+  }));
+  res.json({ data, total: data.length });
+});
+
+router.get('/dte', authenticate, (req, res) => {
+  const expedientes = visibleExpedientes(req.user);
+  const data = expedientes.slice(0, 12).map((item, index) => ({
+    id: index + 1,
+    expediente_id: item.id,
+    expediente: item.codigo,
+    cliente: findCliente(item.cliente_id)?.nombre || 'Cliente',
+    tipo: index % 2 === 0 ? 'FACTURA' : 'COMPROBANTE_CREDITO_FISCAL',
+    numero_control: `DTE-${String(index + 1).padStart(8, '0')}`,
+    estado: ['EMITIDO', 'VALIDADO', 'RECHAZADO'][index % 3],
+    total: Number((item.valor_fob * 0.012).toFixed(2)),
+    fecha: item.fecha_actualizacion
+  }));
+  res.json({ data, total: data.length });
 });
 
 router.get('/exportar/csv', authenticate, authorize(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.FORWARDER), (req, res) => {
@@ -730,6 +894,20 @@ function addAuditLog(tipo, usuario_id, mensaje) {
 
 function findCliente(id) {
   return db.clientes.find((item) => item.id_cliente === Number(id));
+}
+
+function findExpediente(id) {
+  return db.expedientes.find((item) => item.id === Number(id));
+}
+
+function roleLabel(rol) {
+  return {
+    [ROLES.ADMIN]: 'Administrador del Sistema',
+    [ROLES.FORWARDER]: 'Freight Forwarder',
+    [ROLES.SUPERVISOR]: 'Supervisor de Operaciones',
+    [ROLES.CLIENTE]: 'Cliente',
+    [ROLES.SOPORTE]: 'Soporte Tecnico'
+  }[rol] || rol;
 }
 
 function filterEquals(value, expected) {

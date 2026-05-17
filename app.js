@@ -8,9 +8,11 @@ const authRoutes = require('./routes/authRoutes');
 const expedienteRoutes = require('./routes/expedienteRoutes');
 const documentoRoutes = require('./routes/documentoRoutes');
 const seguimientoRoutes = require('./routes/seguimientoRoutes');
+const seguimientoController = require('./controllers/seguimientoController');
 const dteRoutes = require('./routes/dteRoutes');
 const reportesRoutes = require('./routes/reportesRoutes');
 const usuariosRoutes = require('./routes/usuariosRoutes');
+const operacionesRoutes = require('./routes/operacionesRoutes');
 const mockHacienda = require('./mocks/hacienda');
 const mockNavieras = require('./mocks/navieras');
 
@@ -30,9 +32,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/expedientes', expedienteRoutes);
 app.use('/api/documentos', documentoRoutes);
 app.use('/api/seguimiento', seguimientoRoutes);
+app.get('/api/tracking/:codigo', seguimientoController.trackingPublico);
 app.use('/api/dte', dteRoutes);
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/usuarios', usuariosRoutes);
+app.use('/api', operacionesRoutes);
 app.use('/api/mock-hacienda', mockHacienda);
 app.use('/api/mock-navieras', mockNavieras);
 

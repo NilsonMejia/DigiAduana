@@ -23,16 +23,16 @@
 
     <section v-if="result" class="tracking__result">
       <div class="tracking__summary">
-        <h2>{{ result.expediente.codigo }}</h2>
-        <p>{{ result.expediente.cliente }} · {{ result.expediente.tipo_operacion }}</p>
-        <mark>{{ result.expediente.estado }}</mark>
+        <h2>{{ tracking.codigo }}</h2>
+        <p>{{ tracking.ubicacion || tracking.cliente || 'Ubicacion en actualizacion' }}</p>
+        <mark>{{ tracking.estado_actual || tracking.estado }}</mark>
       </div>
 
       <ol class="tracking__timeline">
-        <li v-for="event in result.historial" :key="`${event.estado}-${event.creado_en}`">
+        <li v-for="event in events" :key="`${event.estado}-${event.fecha_evento || event.creado_en}`">
           <strong>{{ event.estado }}</strong>
-          <span>{{ event.comentario || 'Actualizacion registrada' }}</span>
-          <time>{{ formatDate(event.creado_en) }}</time>
+          <span>{{ event.evento || event.comentario || 'Actualizacion registrada' }}</span>
+          <time>{{ formatDate(event.fecha_evento || event.creado_en) }}</time>
         </li>
       </ol>
     </section>
@@ -40,13 +40,13 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../../services/api';
 
 const router = useRouter();
 
-const codigo = ref('EXP-2026-000001');
+const codigo = ref('EXP-2026-0001');
 const loading = ref(false);
 const error = ref('');
 const result = ref(null);
@@ -69,13 +69,16 @@ async function search() {
 
   loading.value = true;
   try {
-    result.value = await api(`/seguimiento/publico/${encodeURIComponent(codigo.value)}`);
+    result.value = await api(`/tracking/${encodeURIComponent(codigo.value)}`);
   } catch (requestError) {
     error.value = requestError.message;
   } finally {
     loading.value = false;
   }
 }
+
+const tracking = computed(() => result.value?.expediente || result.value || {});
+const events = computed(() => result.value?.historial || result.value?.eventos || []);
 
 function goToLogin() {
   router.push({ name: 'Login' });

@@ -13,7 +13,7 @@ export const ROLE = Object.freeze({
 });
 
 const dashboardByRole = {
-  [ROLE.ADMIN]: { name: 'AdminUsers' },
+  [ROLE.ADMIN]: { name: 'AdminDashboard' },
   [ROLE.FORWARDER]: { name: 'ForwarderExpedientes' },
   [ROLE.SUPERVISOR]: { name: 'SupervisorDashboard' },
   [ROLE.CLIENTE]: { name: 'ClienteDashboard' },
@@ -53,13 +53,43 @@ const routes = [
     children: [
       {
         path: '',
-        redirect: { name: 'AdminUsers' }
+        redirect: { name: 'AdminDashboard' }
+      },
+      {
+        path: 'dashboard',
+        name: 'AdminDashboard',
+        component: () => import('../views/admin/AdminDashboard.vue'),
+        meta: { title: 'Resumen administrador' }
       },
       {
         path: 'usuarios',
         name: 'AdminUsers',
         component: () => import('../views/admin/UserManagement.vue'),
         meta: { title: 'Usuarios y roles' }
+      },
+      {
+        path: 'notificaciones',
+        name: 'AdminNotifications',
+        component: () => import('../views/admin/AdminNotifications.vue'),
+        meta: { title: 'Notificaciones' }
+      },
+      {
+        path: 'estadisticas',
+        name: 'AdminStats',
+        component: () => import('../views/admin/AdminStats.vue'),
+        meta: { title: 'Estadisticas globales' }
+      },
+      {
+        path: 'configuracion',
+        name: 'AdminSettings',
+        component: () => import('../views/admin/AdminSettings.vue'),
+        meta: { title: 'Configuracion general' }
+      },
+      {
+        path: 'logs',
+        name: 'AdminLogs',
+        component: () => import('../views/admin/AdminLogs.vue'),
+        meta: { title: 'Bitacora de auditoria' }
       },
       {
         path: 'backups',

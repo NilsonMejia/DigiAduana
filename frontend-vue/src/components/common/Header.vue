@@ -6,7 +6,9 @@
     </div>
 
     <div class="topbar__profile">
-      <button class="topbar__notify" type="button" aria-label="Notificaciones">!</button>
+      <button class="topbar__notify" type="button" aria-label="Notificaciones">
+        <i class="fas fa-bell"></i>
+      </button>
       <div class="topbar__avatar" aria-hidden="true">{{ initials }}</div>
       <div class="topbar__user">
         <strong>{{ auth.userName }}</strong>
@@ -60,8 +62,9 @@ function logout() {
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem;
-  border-bottom: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.78);
+  color: #e2e8f0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(3, 7, 18, 0.74);
   backdrop-filter: blur(16px);
 }
 
@@ -71,11 +74,12 @@ function logout() {
 }
 
 .topbar p {
-  color: var(--muted);
+  color: #94a3b8;
   font-size: 0.86rem;
 }
 
 .topbar h1 {
+  color: #fff;
   font-size: clamp(1.15rem, 2vw, 1.55rem);
 }
 
@@ -87,15 +91,15 @@ function logout() {
 
 .topbar__notify,
 .topbar__logout {
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 0.7rem;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .topbar__notify {
   width: 2.4rem;
   height: 2.4rem;
-  color: var(--warning);
+  color: #fcd34d;
   font-weight: 900;
 }
 
@@ -106,7 +110,7 @@ function logout() {
   height: 2.5rem;
   color: #fff;
   border-radius: 50%;
-  background: var(--primary);
+  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
   font-weight: 800;
 }
 
@@ -120,13 +124,13 @@ function logout() {
 }
 
 .topbar__user span {
-  color: var(--muted);
+  color: #94a3b8;
   font-size: 0.83rem;
 }
 
 .topbar__logout {
   padding: 0.65rem 0.85rem;
-  color: var(--danger);
+  color: #fecaca;
   font-weight: 700;
 }
 

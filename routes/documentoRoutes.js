@@ -5,6 +5,7 @@ const upload = require('../middlewares/uploadMiddleware');
 const controller = require('../controllers/documentoController');
 
 router.use(auth);
+router.get('/', roles('ADMINISTRADOR', 'SUPERVISOR', 'FREIGHT_FORWARDER', 'CLIENTE', 'SOPORTE_TECNICO'), controller.listar);
 router.get('/expediente/:expedienteId', roles('ADMINISTRADOR', 'SUPERVISOR', 'FREIGHT_FORWARDER', 'CLIENTE', 'SOPORTE_TECNICO'), controller.listarPorExpediente);
 router.post('/', roles('ADMINISTRADOR', 'SUPERVISOR', 'FREIGHT_FORWARDER'), upload.single('pdf'), controller.subir);
 router.patch('/:id/validar', roles('ADMINISTRADOR', 'SUPERVISOR'), controller.validar);
