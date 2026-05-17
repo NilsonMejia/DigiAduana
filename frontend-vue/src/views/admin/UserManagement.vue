@@ -1,1018 +1,723 @@
 <template>
-  <div class="user-management">
-    <div class="animated-bg"></div>
+  <section class="admin-page">
+    <div class="admin-bg"></div>
+    <div class="admin-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow"><i class="fas fa-users-gear"></i> CU-ADM-01</p>
+          <h1>Gestión de Usuarios y Roles</h1>
+          <span>Control de identidades, sesiones JWT y niveles de acceso operativos.</span>
+        </div>
+        <button class="primary-btn" type="button" @click="openCreateModal">
+          <i class="fas fa-user-plus"></i>
+          Crear usuario
+        </button>
+      </header>
 
-    <div class="page-header">
+      <section class="kpi-grid">
+        <article v-for="item in kpis" :key="item.label" class="glass-card">
+          <i :class="item.icon"></i>
+          <strong>{{ item.value }}</strong>
+          <span>{{ item.label }}</span>
+        </article>
+      </section>
+
+      <section class="toolbar">
+        <label class="search-box">
+          <i class="fas fa-search"></i>
+          <input v-model.trim="filters.search" type="search" placeholder="Buscar por nombre, correo, empresa o rol" />
+        </label>
+
+        <label>
+          Rol
+          <select v-model="filters.role">
+            <option value="">Todos</option>
+            <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
+          </select>
+        </label>
+
+        <label>
+          Estado
+          <select v-model="filters.status">
+            <option value="">Todos</option>
+            <option value="Activo">Activo</option>
+            <option value="Bloqueado">Bloqueado</option>
+            <option value="Suspendido">Suspendido</option>
+          </select>
+        </label>
+
+        <label>
+          Filas
+          <select v-model.number="pageSize">
+            <option :value="8">8</option>
+            <option :value="12">12</option>
+            <option :value="16">16</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="data-panel">
+        <div class="data-panel__head">
+          <div>
+            <strong>Directorio corporativo</strong>
+            <span>{{ filteredUsers.length }} usuarios encontrados</span>
+          </div>
+          <span class="hash-pill"><i class="fas fa-shield-halved"></i> Bcrypt + JWT RBAC</span>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Rol</th>
+                <th>Empresa / Área</th>
+                <th>Nivel</th>
+                <th>Creado</th>
+                <th>Estado</th>
+                <th>Sesión</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="user in paginatedUsers" :key="user.id">
+                <td>
+                  <div class="identity">
+                    <span>{{ initials(user.name) }}</span>
+                    <div>
+                      <strong>{{ user.name }}</strong>
+                      <small>{{ user.email }}</small>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="role-badge" :class="roleClass(user.role)">{{ roleLabel(user.role) }}</span></td>
+                <td>{{ user.company }}</td>
+                <td>{{ user.accessLevel }}</td>
+                <td>{{ user.createdAt }}</td>
+                <td><span class="status-badge" :class="statusClass(user.status)">{{ user.status }}</span></td>
+                <td>{{ user.jwtSession }}</td>
+                <td>
+                  <div class="row-actions">
+                    <button title="Desbloquear sesión JWT" @click="unlockSession(user)">
+                      <i class="fas fa-key"></i>
+                    </button>
+                    <button title="Desactivar cuenta" @click="deactivateUser(user)">
+                      <i class="fas fa-user-slash"></i>
+                    </button>
+                    <button title="Auditar usuario" @click="selectedAudit = user">
+                      <i class="fas fa-clipboard-check"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <footer class="pagination">
+          <button :disabled="page === 1" @click="page--"><i class="fas fa-chevron-left"></i></button>
+          <span>Página {{ page }} de {{ totalPages }}</span>
+          <button :disabled="page === totalPages" @click="page++"><i class="fas fa-chevron-right"></i></button>
+        </footer>
+      </section>
+
+      <section class="audit-strip">
+        <article v-for="event in recentEvents" :key="event.id">
+          <i :class="event.icon"></i>
+          <div>
+            <strong>{{ event.title }}</strong>
+            <span>{{ event.detail }}</span>
+          </div>
+        </article>
+      </section>
+    </div>
+
+    <div v-if="showCreate" class="modal-backdrop" @click.self="showCreate = false">
+      <form class="modal-card" @submit.prevent="createUser">
+        <header>
+          <h2><i class="fas fa-user-lock"></i> Alta segura de usuario</h2>
+          <button type="button" @click="showCreate = false"><i class="fas fa-xmark"></i></button>
+        </header>
+        <label>Nombre completo<input v-model="newUser.name" required placeholder="Ej. Andrea Pineda" /></label>
+        <label>Correo corporativo<input v-model="newUser.email" required type="email" placeholder="usuario@empresa.com" /></label>
+        <label>Rol
+          <select v-model="newUser.role" required>
+            <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
+          </select>
+        </label>
+        <label>Empresa / Área<input v-model="newUser.company" required placeholder="Operaciones San Salvador" /></label>
+        <div class="bcrypt-preview">
+          <i class="fas fa-fingerprint"></i>
+          <span>Se generará hash Bcrypt simulado y política JWT de {{ accessForRole(newUser.role) }}.</span>
+        </div>
+        <button class="primary-btn" type="submit"><i class="fas fa-lock"></i> Crear con acceso seguro</button>
+      </form>
+    </div>
+
+    <aside v-if="selectedAudit" class="audit-drawer">
+      <button class="drawer-close" @click="selectedAudit = null"><i class="fas fa-xmark"></i></button>
+      <h3>{{ selectedAudit.name }}</h3>
+      <p>{{ selectedAudit.email }}</p>
       <div>
-        <div class="badge">Administración del Sistema</div>
-        <h1>Usuarios y roles</h1>
-        <p>Gestiona los perfiles de acceso al sistema DigiAduana</p>
+        <span>Última IP</span>
+        <strong>{{ selectedAudit.lastIp }}</strong>
       </div>
-      <button class="btn-primary" @click="openAddUserModal">
-        <i class="fas fa-user-plus"></i> Nuevo usuario
-      </button>
-    </div>
-
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-icon"><i class="fas fa-users"></i></div>
-        <div class="stat-info">
-          <span class="stat-label">Usuarios internos</span>
-          <strong class="stat-value">{{ internalUsersCount }}</strong>
-        </div>
+      <div>
+        <span>Último acceso</span>
+        <strong>{{ selectedAudit.lastLogin }}</strong>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon"><i class="fas fa-user-friends"></i></div>
-        <div class="stat-info">
-          <span class="stat-label">Clientes</span>
-          <strong class="stat-value">{{ clientsCount }}</strong>
-        </div>
+      <div>
+        <span>Hash Bcrypt</span>
+        <code>{{ selectedAudit.hashPreview }}</code>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon"><i class="fas fa-tag"></i></div>
-        <div class="stat-info">
-          <span class="stat-label">Roles activos</span>
-          <strong class="stat-value">{{ activeRolesCount }}</strong>
-        </div>
-      </div>
-    </div>
-
-    <div class="filters-bar">
-      <div class="search-wrapper">
-        <i class="fas fa-search"></i>
-        <input
-          v-model="searchTerm"
-          type="text"
-          placeholder="Buscar por nombre, email o rol..."
-          class="search-input"
-        />
-      </div>
-      <div class="role-filter">
-        <i class="fas fa-filter"></i>
-        <select v-model="roleFilter">
-          <option value="">Todos los roles</option>
-          <option value="admin">Administrador</option>
-          <option value="forwarder">Freight Forwarder</option>
-          <option value="supervisor">Supervisor</option>
-          <option value="cliente">Cliente</option>
-          <option value="soporte">Soporte técnico</option>
-        </select>
-      </div>
-      <div class="status-filter">
-        <i class="fas fa-circle"></i>
-        <select v-model="statusFilter">
-          <option value="">Todos</option>
-          <option value="activo">Activos</option>
-          <option value="inactivo">Inactivos</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="users-table-container">
-      <div v-if="loading" class="skeleton-list">
-        <div v-for="i in 5" :key="i" class="skeleton-row"></div>
-      </div>
-      <div v-else-if="filteredUsers.length === 0" class="empty-state">
-        <i class="fas fa-user-slash"></i>
-        <h4>No hay usuarios</h4>
-        <p>No se encontraron usuarios con los filtros actuales.</p>
-      </div>
-      <div v-else class="users-table">
-        <div class="table-header">
-          <div>Usuario</div>
-          <div>Email</div>
-          <div>Rol</div>
-          <div>Estado</div>
-          <div>Acciones</div>
-        </div>
-        <div v-for="user in filteredUsers" :key="user.id" class="table-row">
-          <div class="user-cell">
-            <div class="user-avatar">{{ user.nombre.charAt(0) }}</div>
-            <span>{{ user.nombre }}</span>
-          </div>
-          <div class="email-cell">{{ user.correo }}</div>
-          <div class="role-cell">
-            <span class="role-badge" :class="getRoleClass(user.rol)">
-              <i :class="getRoleIcon(user.rol)"></i> {{ formatRol(user.rol) }}
-            </span>
-          </div>
-          <div class="status-cell">
-            <span class="status-badge" :class="isActive(user) ? 'status-active' : 'status-inactive'">
-              <i :class="isActive(user) ? 'fas fa-check-circle' : 'fas fa-ban'"></i>
-              {{ isActive(user) ? 'Activo' : 'Inactivo' }}
-            </span>
-          </div>
-          <div class="actions-cell">
-            <button class="action-icon" @click="openEditRoleModal(user)" title="Cambiar rol">
-              <i class="fas fa-user-tag"></i>
-            </button>
-            <button class="action-icon" @click="toggleUserStatus(user)" :title="isActive(user) ? 'Desactivar' : 'Activar'">
-              <i :class="isActive(user) ? 'fas fa-ban' : 'fas fa-check-circle'"></i>
-            </button>
-            <button class="action-icon danger" @click="confirmDelete(user)" title="Eliminar">
-              <i class="fas fa-trash-alt"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="showAddModal" class="modal-overlay" @click.self="closeModals">
-      <div class="modal">
-        <div class="modal-header">
-          <h3><i class="fas fa-user-plus"></i> Nuevo usuario</h3>
-          <button class="close-btn" @click="closeModals"><i class="fas fa-times"></i></button>
-        </div>
-        <form @submit.prevent="addUser">
-          <div class="form-group">
-            <label><i class="fas fa-user"></i> Nombre completo</label>
-            <input v-model="newUser.nombre" type="text" required placeholder="Ej: Juan Pérez" />
-          </div>
-          <div class="form-group">
-            <label><i class="fas fa-envelope"></i> Correo electrónico</label>
-            <input v-model="newUser.correo" type="email" required placeholder="usuario@digiaduana.com" />
-          </div>
-          <div class="form-group">
-            <label><i class="fas fa-lock"></i> Contraseña</label>
-            <input v-model="newUser.password" type="password" required placeholder="Mínimo 6 caracteres" />
-          </div>
-          <div class="form-group">
-            <label><i class="fas fa-tag"></i> Rol</label>
-            <select v-model="newUser.rol" required>
-              <option value="">Seleccionar rol</option>
-              <option v-for="role in roles" :key="role.id" :value="role.actor">{{ roleLabel(role) }}</option>
-            </select>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn-secondary" @click="closeModals">Cancelar</button>
-            <button type="submit" class="btn-primary" :disabled="addingUser">
-              {{ addingUser ? 'Creando...' : 'Crear usuario' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <div v-if="showRoleModal" class="modal-overlay" @click.self="closeModals">
-      <div class="modal small">
-        <div class="modal-header">
-          <h3><i class="fas fa-exchange-alt"></i> Cambiar rol</h3>
-          <button class="close-btn" @click="closeModals"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body">
-          <p>Usuario: <strong>{{ selectedUser?.nombre }}</strong></p>
-          <div class="form-group">
-            <label>Nuevo rol</label>
-            <select v-model="newRole">
-              <option v-for="role in roles" :key="role.id" :value="role.actor">{{ roleLabel(role) }}</option>
-            </select>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="closeModals">Cancelar</button>
-          <button class="btn-primary" @click="updateRole" :disabled="updatingRole">
-            {{ updatingRole ? 'Guardando...' : 'Guardar cambio' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="closeModals">
-      <div class="modal small">
-        <div class="modal-header warning">
-          <h3><i class="fas fa-exclamation-triangle"></i> Confirmar eliminación</h3>
-        </div>
-        <div class="modal-body">
-          <p>¿Estás seguro de eliminar al usuario <strong>{{ selectedUser?.nombre }}</strong>?</p>
-          <p class="warning-text">Esta acción no se puede deshacer.</p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="closeModals">Cancelar</button>
-          <button class="btn-danger" @click="deleteUser" :disabled="deletingUser">
-            {{ deletingUser ? 'Eliminando...' : 'Eliminar' }}
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
+    </aside>
+  </section>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { api } from '../../services/api';
+import { computed, reactive, ref, watch } from 'vue';
 
-// Estado
-const loading = ref(false);
-const users = ref([]);
-const roles = ref([
-  { id: 1, actor: 'admin', nombre: 'ADMINISTRADOR' },
-  { id: 2, actor: 'supervisor', nombre: 'SUPERVISOR' },
-  { id: 3, actor: 'forwarder', nombre: 'FREIGHT_FORWARDER' },
-  { id: 4, actor: 'cliente', nombre: 'CLIENTE' },
-  { id: 5, actor: 'soporte', nombre: 'SOPORTE_TECNICO' }
+const roles = [
+  { value: 'admin', label: 'Administrador' },
+  { value: 'forwarder', label: 'Freight Forwarder' },
+  { value: 'supervisor', label: 'Supervisor' },
+  { value: 'cliente', label: 'Cliente' },
+  { value: 'soporte', label: 'Soporte Técnico' }
+];
+
+const users = ref([
+  { id: 1, name: 'Jonathan Herrera', email: 'admin@digiaduana.local', role: 'admin', company: 'DigiAduana Central', accessLevel: 'Nivel 5 - Root', createdAt: '2026-01-12', status: 'Activo', jwtSession: 'Validada', lastIp: '190.57.88.21', lastLogin: '2026-05-17 10:42', hashPreview: '$2b$10$A9p...root' },
+  { id: 2, name: 'Valeria Menéndez', email: 'forwarder@digiaduana.local', role: 'forwarder', company: 'Acajutla Freight Hub', accessLevel: 'Nivel 3 - Operativo', createdAt: '2026-01-18', status: 'Activo', jwtSession: 'Validada', lastIp: '181.189.144.10', lastLogin: '2026-05-17 09:31', hashPreview: '$2b$10$Q8f...frw' },
+  { id: 3, name: 'Mario Escobar', email: 'supervisor@digiaduana.local', role: 'supervisor', company: 'Supervisión Aduanera', accessLevel: 'Nivel 4 - Aprobador', createdAt: '2026-01-20', status: 'Activo', jwtSession: 'Validada', lastIp: '190.120.77.83', lastLogin: '2026-05-17 08:55', hashPreview: '$2b$10$C4t...sup' },
+  { id: 4, name: 'Ana Morales', email: 'cliente@digiaduana.local', role: 'cliente', company: 'Importadora Cuscatlán', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-02-02', status: 'Activo', jwtSession: 'Validada', lastIp: '186.32.91.17', lastLogin: '2026-05-16 16:44', hashPreview: '$2b$10$K1p...cli' },
+  { id: 5, name: 'Diego Guardado', email: 'soporte@digiaduana.local', role: 'soporte', company: 'Mesa de Ayuda TI', accessLevel: 'Nivel 2 - Soporte', createdAt: '2026-02-05', status: 'Activo', jwtSession: 'Validada', lastIp: '10.10.2.31', lastLogin: '2026-05-17 07:48', hashPreview: '$2b$10$Z2n...sop' },
+  { id: 6, name: 'Sofía Alvarado', email: 'sofia.alvarado@digiaduana.local', role: 'supervisor', company: 'Operaciones Marítimas', accessLevel: 'Nivel 4 - Aprobador', createdAt: '2026-02-09', status: 'Bloqueado', jwtSession: 'Expirada', lastIp: '201.247.122.40', lastLogin: '2026-05-15 14:20', hashPreview: '$2b$10$N8m...sup' },
+  { id: 7, name: 'Carlos Rivas', email: 'carlos.rivas@forwarder.local', role: 'forwarder', company: 'Pacífico Cargo', accessLevel: 'Nivel 3 - Operativo', createdAt: '2026-02-14', status: 'Activo', jwtSession: 'Validada', lastIp: '190.86.33.18', lastLogin: '2026-05-17 06:11', hashPreview: '$2b$10$L9s...frw' },
+  { id: 8, name: 'Marcela Pineda', email: 'marcela.pineda@textiles.local', role: 'cliente', company: 'Textiles Santa Ana', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-02-21', status: 'Activo', jwtSession: 'Validada', lastIp: '181.225.42.91', lastLogin: '2026-05-16 11:18', hashPreview: '$2b$10$P7c...cli' },
+  { id: 9, name: 'Roberto Aguilar', email: 'roberto.aguilar@naviera.local', role: 'forwarder', company: 'Naviera del Pacífico', accessLevel: 'Nivel 3 - Operativo', createdAt: '2026-02-25', status: 'Suspendido', jwtSession: 'Revocada', lastIp: '172.16.4.19', lastLogin: '2026-05-10 13:02', hashPreview: '$2b$10$R2v...frw' },
+  { id: 10, name: 'Lucía Campos', email: 'lucia.campos@soporte.local', role: 'soporte', company: 'NOC DigiAduana', accessLevel: 'Nivel 2 - Soporte', createdAt: '2026-03-01', status: 'Activo', jwtSession: 'Validada', lastIp: '10.10.2.45', lastLogin: '2026-05-17 10:10', hashPreview: '$2b$10$S4k...sop' },
+  { id: 11, name: 'Mauricio Arias', email: 'mauricio.arias@agrolempa.local', role: 'cliente', company: 'Agroexportadora Lempa', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-03-04', status: 'Activo', jwtSession: 'Validada', lastIp: '190.53.61.29', lastLogin: '2026-05-13 08:40', hashPreview: '$2b$10$J7q...cli' },
+  { id: 12, name: 'Karla Mejía', email: 'karla.mejia@digiaduana.local', role: 'admin', company: 'Seguridad Aplicativa', accessLevel: 'Nivel 5 - Root', createdAt: '2026-03-07', status: 'Activo', jwtSession: 'Validada', lastIp: '10.0.0.12', lastLogin: '2026-05-17 09:02', hashPreview: '$2b$10$V5r...adm' },
+  { id: 13, name: 'Elena Portillo', email: 'elena.portillo@farmaceutica.local', role: 'cliente', company: 'Farmacéutica El Salvador', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-03-10', status: 'Bloqueado', jwtSession: 'Bloqueada', lastIp: '186.149.20.88', lastLogin: '2026-05-08 15:30', hashPreview: '$2b$10$T6y...cli' },
+  { id: 14, name: 'Daniel Herrera', email: 'daniel.herrera@cargo.local', role: 'forwarder', company: 'Aéreo Express SV', accessLevel: 'Nivel 3 - Operativo', createdAt: '2026-03-11', status: 'Activo', jwtSession: 'Validada', lastIp: '200.31.171.3', lastLogin: '2026-05-17 05:55', hashPreview: '$2b$10$B2h...frw' },
+  { id: 15, name: 'Paola Calderón', email: 'paola.calderon@digiaduana.local', role: 'supervisor', company: 'Auditoría Documental', accessLevel: 'Nivel 4 - Aprobador', createdAt: '2026-03-16', status: 'Activo', jwtSession: 'Validada', lastIp: '10.1.2.76', lastLogin: '2026-05-16 17:19', hashPreview: '$2b$10$U7b...sup' },
+  { id: 16, name: 'Óscar Lemus', email: 'oscar.lemus@soporte.local', role: 'soporte', company: 'Infraestructura Cloud', accessLevel: 'Nivel 2 - Soporte', createdAt: '2026-03-18', status: 'Activo', jwtSession: 'Validada', lastIp: '10.10.2.57', lastLogin: '2026-05-17 04:39', hashPreview: '$2b$10$M3c...sop' },
+  { id: 17, name: 'Gabriela Solís', email: 'gabriela.solis@plasticos.local', role: 'cliente', company: 'Plásticos Mesoamérica', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-03-22', status: 'Activo', jwtSession: 'Validada', lastIp: '190.151.41.203', lastLogin: '2026-05-15 18:22', hashPreview: '$2b$10$A1x...cli' },
+  { id: 18, name: 'Héctor Núñez', email: 'hector.nunez@forwarder.local', role: 'forwarder', company: 'TransLogística CA', accessLevel: 'Nivel 3 - Operativo', createdAt: '2026-03-25', status: 'Bloqueado', jwtSession: 'Bloqueada', lastIp: '201.191.7.44', lastLogin: '2026-05-11 07:34', hashPreview: '$2b$10$E9d...frw' },
+  { id: 19, name: 'Renata Figueroa', email: 'renata.figueroa@digiaduana.local', role: 'supervisor', company: 'Control de Riesgo', accessLevel: 'Nivel 4 - Aprobador', createdAt: '2026-03-28', status: 'Activo', jwtSession: 'Validada', lastIp: '10.1.1.84', lastLogin: '2026-05-16 12:01', hashPreview: '$2b$10$G6m...sup' },
+  { id: 20, name: 'Luis Barrera', email: 'luis.barrera@coffee.local', role: 'cliente', company: 'Café Volcán de Izalco', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-04-01', status: 'Activo', jwtSession: 'Validada', lastIp: '181.115.18.62', lastLogin: '2026-05-14 09:16', hashPreview: '$2b$10$H4w...cli' },
+  { id: 21, name: 'María José Quintanilla', email: 'maria.quintanilla@digiaduana.local', role: 'admin', company: 'Gobierno TI', accessLevel: 'Nivel 5 - Root', createdAt: '2026-04-04', status: 'Activo', jwtSession: 'Validada', lastIp: '10.0.0.18', lastLogin: '2026-05-17 10:05', hashPreview: '$2b$10$F2z...adm' },
+  { id: 22, name: 'Andrés Molina', email: 'andres.molina@repuestos.local', role: 'cliente', company: 'Repuestos La Unión', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-04-07', status: 'Suspendido', jwtSession: 'Revocada', lastIp: '186.32.88.91', lastLogin: '2026-05-04 10:00', hashPreview: '$2b$10$W3e...cli' },
+  { id: 23, name: 'Patricia Sandoval', email: 'patricia.sandoval@cargo.local', role: 'forwarder', company: 'Bodega Fiscal Nejapa', accessLevel: 'Nivel 3 - Operativo', createdAt: '2026-04-12', status: 'Activo', jwtSession: 'Validada', lastIp: '190.86.16.91', lastLogin: '2026-05-16 21:14', hashPreview: '$2b$10$D5n...frw' },
+  { id: 24, name: 'Kevin Alfaro', email: 'kevin.alfaro@soporte.local', role: 'soporte', company: 'Mesa de Ayuda TI', accessLevel: 'Nivel 2 - Soporte', createdAt: '2026-04-15', status: 'Activo', jwtSession: 'Validada', lastIp: '10.10.2.66', lastLogin: '2026-05-17 01:28', hashPreview: '$2b$10$Y8r...sop' },
+  { id: 25, name: 'Verónica Chacón', email: 'veronica.chacon@digiaduana.local', role: 'supervisor', company: 'Cumplimiento Aduanero', accessLevel: 'Nivel 4 - Aprobador', createdAt: '2026-04-18', status: 'Activo', jwtSession: 'Validada', lastIp: '10.1.1.102', lastLogin: '2026-05-17 07:07', hashPreview: '$2b$10$I9k...sup' },
+  { id: 26, name: 'Ricardo Benítez', email: 'ricardo.benitez@techca.local', role: 'cliente', company: 'Tecnología Centroamericana', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-04-20', status: 'Activo', jwtSession: 'Validada', lastIp: '190.57.12.44', lastLogin: '2026-05-16 13:53', hashPreview: '$2b$10$X1l...cli' },
+  { id: 27, name: 'Natalia Córdova', email: 'natalia.cordova@forwarder.local', role: 'forwarder', company: 'Global Freight SV', accessLevel: 'Nivel 3 - Operativo', createdAt: '2026-04-23', status: 'Activo', jwtSession: 'Validada', lastIp: '201.247.53.74', lastLogin: '2026-05-17 08:16', hashPreview: '$2b$10$O6a...frw' },
+  { id: 28, name: 'Ernesto Salazar', email: 'ernesto.salazar@soporte.local', role: 'soporte', company: 'Seguridad Perimetral', accessLevel: 'Nivel 2 - Soporte', createdAt: '2026-04-26', status: 'Bloqueado', jwtSession: 'Bloqueada', lastIp: '10.10.2.81', lastLogin: '2026-05-12 19:02', hashPreview: '$2b$10$P3u...sop' }
 ]);
-const searchTerm = ref('');
-const roleFilter = ref('');
-const statusFilter = ref('');
 
-// Modales
-const showAddModal = ref(false);
-const showRoleModal = ref(false);
-const showDeleteConfirm = ref(false);
-const selectedUser = ref(null);
-const newRole = ref('');
-const addingUser = ref(false);
-const updatingRole = ref(false);
-const deletingUser = ref(false);
+const filters = reactive({ search: '', role: '', status: '' });
+const page = ref(1);
+const pageSize = ref(8);
+const showCreate = ref(false);
+const selectedAudit = ref(null);
+const newUser = reactive({ name: '', email: '', role: 'forwarder', company: '' });
 
-// Formulario nuevo usuario
-const newUser = ref({
-  nombre: '',
-  correo: '',
-  password: '',
-  rol: ''
-});
-
-// Computed para conteos
-const internalUsersCount = computed(() => {
-  return users.value.filter(u => u.rol !== 'cliente' && isActive(u)).length;
-});
-const clientsCount = computed(() => {
-  return users.value.filter(u => u.rol === 'cliente' && isActive(u)).length;
-});
-const activeRolesCount = computed(() => {
-  const activeRoleNames = new Set(users.value.filter(isActive).map(u => u.rol));
-  return activeRoleNames.size;
-});
-
-// Filtrado de usuarios
 const filteredUsers = computed(() => {
-  let result = users.value;
-  if (searchTerm.value) {
-    const term = searchTerm.value.toLowerCase();
-    result = result.filter(u =>
-      u.nombre.toLowerCase().includes(term) ||
-      u.correo.toLowerCase().includes(term) ||
-      u.rol.toLowerCase().includes(term)
+  const term = filters.search.toLowerCase();
+  return users.value.filter((user) => {
+    const matchesTerm = [user.name, user.email, user.company, roleLabel(user.role)].some((value) =>
+      value.toLowerCase().includes(term)
     );
-  }
-  if (roleFilter.value) {
-    result = result.filter(u => u.rol === roleFilter.value);
-  }
-  if (statusFilter.value) {
-    result = result.filter(u => normalizeStatus(u.estado) === statusFilter.value);
-  }
-  return result;
+    return matchesTerm && (!filters.role || user.role === filters.role) && (!filters.status || user.status === filters.status);
+  });
 });
 
-// Funciones auxiliares
-function normalizeRole(rol) {
-  const key = String(rol || '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_|_$/g, '');
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredUsers.value.length / pageSize.value)));
+const paginatedUsers = computed(() => filteredUsers.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value));
 
-  const map = {
-    administrador: 'admin',
-    freight_forwarder: 'forwarder',
-    soporte_tecnico: 'soporte'
-  };
-  return map[key] || key;
-}
+const kpis = computed(() => [
+  { label: 'Usuarios totales', value: users.value.length, icon: 'fas fa-users' },
+  { label: 'Sesiones JWT válidas', value: users.value.filter((u) => u.jwtSession === 'Validada').length, icon: 'fas fa-key' },
+  { label: 'Cuentas bloqueadas', value: users.value.filter((u) => u.status === 'Bloqueado').length, icon: 'fas fa-lock' },
+  { label: 'Roles operativos', value: new Set(users.value.map((u) => u.role)).size, icon: 'fas fa-user-shield' }
+]);
 
-function normalizeStatus(estado) {
-  return String(estado || '').toLowerCase() === 'activo' ? 'activo' : 'inactivo';
-}
+const recentEvents = ref([
+  { id: 1, icon: 'fas fa-unlock-keyhole', title: 'JWT desbloqueado', detail: 'Sesión de Sofía Alvarado liberada por política MFA.' },
+  { id: 2, icon: 'fas fa-shield-virus', title: 'Bcrypt policy', detail: 'Rotación de hashes aplicada a usuarios críticos.' },
+  { id: 3, icon: 'fas fa-user-slash', title: 'Cuenta suspendida', detail: 'Usuario externo con 5 intentos fallidos consecutivos.' }
+]);
 
-function isActive(user) {
-  return normalizeStatus(user.estado) === 'activo';
-}
+watch([() => filters.search, () => filters.role, () => filters.status, pageSize], () => {
+  page.value = 1;
+});
 
-function normalizeUser(user) {
-  return {
-    ...user,
-    id: user.id || user.id_usuario,
-    rol: user.actor || normalizeRole(user.rol),
-    estado: normalizeStatus(user.estado || (user.activo ? 'ACTIVO' : 'INACTIVO'))
-  };
+function initials(name) {
+  return name.split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 }
 
 function roleLabel(role) {
-  return formatRol(role.actor || normalizeRole(role.nombre));
+  return roles.find((item) => item.value === role)?.label || role;
 }
 
-function formatRol(rol) {
-  const normalized = normalizeRole(rol);
-  const map = {
-    admin: 'Administrador',
-    forwarder: 'Freight Forwarder',
-    supervisor: 'Supervisor',
-    cliente: 'Cliente',
-    soporte: 'Soporte técnico'
-  };
-  return map[normalized] || rol;
+function roleClass(role) {
+  return `role-${role}`;
 }
 
-function getRoleClass(rol) {
-  const normalized = normalizeRole(rol);
-  const map = {
-    admin: 'role-admin',
-    forwarder: 'role-forwarder',
-    supervisor: 'role-supervisor',
-    cliente: 'role-cliente',
-    soporte: 'role-soporte'
-  };
-  return map[normalized] || 'role-default';
+function statusClass(status) {
+  return status.toLowerCase();
 }
 
-function getRoleIcon(rol) {
-  const normalized = normalizeRole(rol);
-  const map = {
-    admin: 'fas fa-crown',
-    forwarder: 'fas fa-ship',
-    supervisor: 'fas fa-chart-line',
-    cliente: 'fas fa-user',
-    soporte: 'fas fa-headset'
-  };
-  return map[normalized] || 'fas fa-user';
+function accessForRole(role) {
+  return {
+    admin: 'Nivel 5 - Root',
+    supervisor: 'Nivel 4 - Aprobador',
+    forwarder: 'Nivel 3 - Operativo',
+    soporte: 'Nivel 2 - Soporte',
+    cliente: 'Nivel 1 - Consulta'
+  }[role] || 'Nivel 1 - Consulta';
 }
 
-async function loadRoles() {
-  try {
-    roles.value = await api('/usuarios/roles');
-  } catch (error) {
-    console.error('Error al cargar roles:', error);
-  }
+function openCreateModal() {
+  Object.assign(newUser, { name: '', email: '', role: 'forwarder', company: '' });
+  showCreate.value = true;
 }
 
-// Cargar usuarios desde API
-async function loadUsers() {
-  loading.value = true;
-  try {
-    const response = await api('/usuarios');
-    users.value = (response.data || response).map(normalizeUser);
-  } catch (error) {
-    console.error('Error al cargar usuarios:', error);
-    // Datos mock en caso de error
-    users.value = [
-      { id: 1, nombre: 'Admin Principal', correo: 'admin@digiaduana.com', rol: 'admin', estado: 'activo' },
-      { id: 2, nombre: 'Carlos López', correo: 'carlos@forwarder.com', rol: 'forwarder', estado: 'activo' },
-      { id: 3, nombre: 'María García', correo: 'maria@supervisor.com', rol: 'supervisor', estado: 'activo' },
-      { id: 4, nombre: 'Ana Martínez', correo: 'ana@cliente.com', rol: 'cliente', estado: 'inactivo' },
-      { id: 5, nombre: 'Soporte Tec', correo: 'soporte@digiaduana.com', rol: 'soporte', estado: 'activo' }
-    ];
-  } finally {
-    loading.value = false;
-  }
+function createUser() {
+  const id = Math.max(...users.value.map((user) => user.id)) + 1;
+  users.value.unshift({
+    id,
+    name: newUser.name,
+    email: newUser.email,
+    role: newUser.role,
+    company: newUser.company,
+    accessLevel: accessForRole(newUser.role),
+    createdAt: new Date().toISOString().slice(0, 10),
+    status: 'Activo',
+    jwtSession: 'Pendiente MFA',
+    lastIp: 'Pendiente',
+    lastLogin: 'Sin acceso',
+    hashPreview: `$2b$10$${Math.random().toString(36).slice(2, 12)}...new`
+  });
+  recentEvents.value.unshift({
+    id: Date.now(),
+    icon: 'fas fa-user-plus',
+    title: 'Usuario creado',
+    detail: `${newUser.email} creado con ${accessForRole(newUser.role)}.`
+  });
+  showCreate.value = false;
 }
 
-// Agregar usuario
-async function addUser() {
-  if (!newUser.value.nombre || !newUser.value.correo || !newUser.value.password || !newUser.value.rol) {
-    alert('Por favor completa todos los campos');
-    return;
-  }
-  addingUser.value = true;
-  try {
-    const created = await api('/usuarios', {
-      method: 'POST',
-      body: JSON.stringify(newUser.value)
-    });
-    users.value.unshift(normalizeUser({ ...created, rol: newUser.value.rol }));
-    closeModals();
-    newUser.value = { nombre: '', correo: '', password: '', rol: '' };
-  } catch (error) {
-    console.error('Error al crear usuario:', error);
-    alert('No se pudo crear el usuario');
-  } finally {
-    addingUser.value = false;
-  }
+function deactivateUser(user) {
+  user.status = 'Suspendido';
+  user.jwtSession = 'Revocada';
+  recentEvents.value.unshift({
+    id: Date.now(),
+    icon: 'fas fa-user-slash',
+    title: 'Cuenta desactivada',
+    detail: `${user.email} fue desactivado y sus tokens fueron revocados.`
+  });
 }
 
-// Abrir modal para cambiar rol
-function openEditRoleModal(user) {
-  selectedUser.value = user;
-  newRole.value = user.rol;
-  showRoleModal.value = true;
+function unlockSession(user) {
+  user.status = 'Activo';
+  user.jwtSession = 'Validada';
+  recentEvents.value.unshift({
+    id: Date.now(),
+    icon: 'fas fa-key',
+    title: 'Sesión JWT desbloqueada',
+    detail: `${user.email} recuperó acceso con token renovado.`
+  });
 }
-
-// Actualizar rol
-async function updateRole() {
-  if (!selectedUser.value) return;
-  updatingRole.value = true;
-  try {
-    await api(`/usuarios/${selectedUser.value.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ rol: newRole.value })
-    });
-    selectedUser.value.rol = newRole.value;
-    closeModals();
-  } catch (error) {
-    console.error('Error al actualizar rol:', error);
-    alert('No se pudo cambiar el rol');
-  } finally {
-    updatingRole.value = false;
-  }
-}
-
-// Activar/Desactivar usuario
-async function toggleUserStatus(user) {
-  const newStatus = isActive(user) ? 'INACTIVO' : 'ACTIVO';
-  try {
-    await api(`/usuarios/${user.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ estado: newStatus })
-    });
-    user.estado = normalizeStatus(newStatus);
-  } catch (error) {
-    console.error('Error al cambiar estado:', error);
-    alert('No se pudo cambiar el estado del usuario');
-  }
-}
-
-// Confirmar eliminación
-function confirmDelete(user) {
-  selectedUser.value = user;
-  showDeleteConfirm.value = true;
-}
-
-// Eliminar usuario
-async function deleteUser() {
-  if (!selectedUser.value) return;
-  deletingUser.value = true;
-  try {
-    await api(`/usuarios/${selectedUser.value.id}`, { method: 'DELETE' });
-    const index = users.value.findIndex(u => u.id === selectedUser.value.id);
-    if (index !== -1) users.value.splice(index, 1);
-    closeModals();
-  } catch (error) {
-    console.error('Error al eliminar usuario:', error);
-    alert('No se pudo eliminar el usuario');
-  } finally {
-    deletingUser.value = false;
-  }
-}
-
-// Abrir modal de agregar
-function openAddUserModal() {
-  showAddModal.value = true;
-}
-
-// Cerrar todos los modales
-function closeModals() {
-  showAddModal.value = false;
-  showRoleModal.value = false;
-  showDeleteConfirm.value = false;
-  selectedUser.value = null;
-  newRole.value = '';
-}
-
-onMounted(() => {
-  loadRoles();
-  loadUsers();
-});
 </script>
 
 <style scoped>
-/* ----- FONDO Y CONTENEDOR ----- */
-.user-management {
-  width: 100%; /* GARANTIZADO 100% de ancho */
-  min-height: 100vh;
-  background: radial-gradient(circle at 10% 20%, #0B1120, #030712);
+.admin-page {
+  min-height: calc(100vh - 5rem);
   position: relative;
-  padding: 2rem;
-  font-family: 'Inter', sans-serif;
-  color: #E2E8F0;
-  box-sizing: border-box;
+  overflow: hidden;
+  padding: clamp(1rem, 2vw, 2rem);
+  color: #e2e8f0;
+  background: radial-gradient(circle at 10% 20%, #0b1120, #030712);
+  font-family: Inter, system-ui, sans-serif;
 }
 
-.animated-bg {
+.admin-bg {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  background: radial-gradient(circle at 70% 30%, rgba(59, 130, 246, 0.08), transparent 70%);
-  animation: pulseBg 8s infinite alternate;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 75% 20%, rgba(59, 130, 246, 0.18), transparent 34rem),
+    radial-gradient(circle at 15% 85%, rgba(14, 165, 233, 0.12), transparent 28rem);
+  animation: pulse 8s ease-in-out infinite alternate;
 }
 
-@keyframes pulseBg {
-  0% { opacity: 0.3; transform: scale(1); }
-  100% { opacity: 0.7; transform: scale(1.05); }
+@keyframes pulse {
+  from { opacity: 0.65; transform: scale(1); }
+  to { opacity: 1; transform: scale(1.04); }
 }
 
-/* ----- HEADER ----- */
-.page-header {
+.admin-shell {
   position: relative;
   z-index: 1;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.hero,
+.toolbar,
+.data-panel,
+.glass-card,
+.modal-card,
+.audit-drawer,
+.audit-strip article {
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(15, 25, 45, 0.58);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(18px);
+}
+
+.hero {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.badge {
-  display: inline-block;
-  background: rgba(59, 130, 246, 0.2);
-  padding: 0.25rem 1rem;
-  border-radius: 2rem;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: #3B82F6;
-  margin-bottom: 0.75rem;
-}
-
-.page-header h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: white;
-  margin: 0 0 0.5rem 0;
-}
-
-.page-header p {
-  color: #94A3B8;
-  margin: 0;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #1E3A8A, #3B82F6);
-  border: none;
-  border-radius: 2rem;
-  padding: 0.7rem 1.5rem;
-  color: white;
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-  transition: all 0.2s;
-  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
-}
-
-.btn-secondary {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 2rem;
-  padding: 0.6rem 1.2rem;
-  color: #CBD5E1;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: #3B82F6;
-}
-
-.btn-danger {
-  background: rgba(239, 68, 68, 0.8);
-  border: none;
-  border-radius: 2rem;
-  padding: 0.6rem 1.2rem;
-  color: white;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-danger:hover {
-  background: #EF4444;
-  transform: translateY(-2px);
-}
-
-/* ----- TARJETAS DE ESTADÍSTICAS ----- */
-.stats-grid {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.2rem;
-  margin-bottom: 2rem;
-}
-
-.stat-card {
-  background: rgba(15, 25, 45, 0.6);
-  backdrop-filter: blur(12px);
-  border-radius: 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 1.2rem;
-  display: flex;
-  align-items: center;
   gap: 1rem;
-  transition: transform 0.2s;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: 1.5rem;
+  border-radius: 1.5rem;
 }
 
-.stat-card:hover {
-  transform: translateY(-3px);
-}
-
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  background: rgba(59, 130, 246, 0.15);
-  border-radius: 1rem;
-  display: flex;
+.eyebrow {
+  display: inline-flex;
+  gap: 0.45rem;
   align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  color: #3B82F6;
-}
-
-.stat-info {
-  flex: 1;
-}
-
-.stat-label {
+  margin: 0 0 0.7rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.14);
   font-size: 0.75rem;
-  color: #94A3B8;
+  font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
-.stat-value {
-  font-size: 1.8rem;
-  font-weight: 800;
-  color: white;
+h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(2rem, 4vw, 3.6rem);
   line-height: 1;
 }
 
-/* ----- FILTROS ----- */
-.filters-bar {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-wrap: wrap;
+.hero span,
+.data-panel__head span,
+small {
+  color: #94a3b8;
+}
+
+.primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.85rem 1.15rem;
+  color: #fff;
+  font-weight: 900;
+  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+  box-shadow: 0 12px 30px rgba(59, 130, 246, 0.28);
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 1rem;
-  margin-bottom: 2rem;
-  background: rgba(15, 25, 45, 0.4);
-  backdrop-filter: blur(8px);
-  border-radius: 1.5rem;
+  margin: 1rem 0;
+}
+
+.glass-card {
+  padding: 1.15rem;
+  border-radius: 1.25rem;
+}
+
+.glass-card i {
+  width: 2.6rem;
+  height: 2.6rem;
+  display: grid;
+  place-items: center;
+  margin-bottom: 0.8rem;
+  border-radius: 0.9rem;
+  color: #bfdbfe;
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.95), rgba(59, 130, 246, 0.85));
+}
+
+.glass-card strong {
+  display: block;
+  color: #fff;
+  font-size: 1.8rem;
+}
+
+.glass-card span {
+  color: #94a3b8;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(140px, 180px));
+  gap: 0.8rem;
+  padding: 1rem;
+  border-radius: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+label {
+  display: grid;
+  gap: 0.35rem;
+  color: #bfdbfe;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.search-box {
+  position: relative;
+}
+
+.search-box i {
+  position: absolute;
+  left: 0.9rem;
+  bottom: 0.9rem;
+  color: #60a5fa;
+}
+
+input,
+select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.85rem;
+  padding: 0.82rem 0.9rem;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.search-box input {
+  padding-left: 2.4rem;
+}
+
+.data-panel {
+  border-radius: 1.25rem;
+  overflow: hidden;
+}
+
+.data-panel__head,
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   padding: 1rem;
 }
 
-.search-wrapper {
-  flex: 2;
-  min-width: 200px;
-  position: relative;
+.data-panel__head strong {
+  display: block;
+  color: #fff;
 }
 
-.search-wrapper i {
-  position: absolute;
-  left: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #5A6E7A;
-}
-
-.search-input {
-  width: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 2rem;
-  padding: 0.7rem 1rem 0.7rem 2.5rem;
-  color: white;
-  font-size: 0.9rem;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #3B82F6;
-}
-
-.role-filter, .status-filter {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 2rem;
-  padding: 0.2rem 0.5rem 0.2rem 1rem;
-}
-
-.role-filter i, .status-filter i {
-  color: #5A6E7A;
-}
-
-select {
-  background: transparent;
-  border: none;
-  padding: 0.5rem;
-  color: white;
-  cursor: pointer;
-}
-
-select:focus {
-  outline: none;
-}
-
-/* ----- TABLA DE USUARIOS ----- */
-.users-table-container {
-  position: relative;
-  z-index: 1;
-  background: rgba(15, 25, 45, 0.4);
-  backdrop-filter: blur(12px);
-  border-radius: 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  overflow-x: auto;
-}
-
-.users-table {
-  min-width: 700px;
-}
-
-.table-header {
-  display: grid;
-  grid-template-columns: 2fr 2fr 1.2fr 1fr 1.5fr;
-  gap: 1rem;
-  padding: 1rem 1.2rem;
-  background: rgba(0, 0, 0, 0.3);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #94A3B8;
-  font-weight: 600;
-}
-
-.table-row {
-  display: grid;
-  grid-template-columns: 2fr 2fr 1.2fr 1fr 1.5fr;
-  gap: 1rem;
-  padding: 0.8rem 1.2rem;
-  align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  transition: background 0.2s;
-}
-
-.table-row:hover {
-  background: rgba(59, 130, 246, 0.1);
-}
-
-.user-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-}
-
-.user-avatar {
-  width: 36px;
-  height: 36px;
-  background: linear-gradient(135deg, #1E3A8A, #3B82F6);
-  border-radius: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  font-size: 1rem;
-  color: white;
-}
-
-.email-cell {
-  color: #CBD5E1;
-  word-break: break-all;
-}
-
+.hash-pill,
+.status-badge,
 .role-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.25rem 0.8rem;
-  border-radius: 2rem;
+  gap: 0.35rem;
+  padding: 0.32rem 0.65rem;
+  border-radius: 999px;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 900;
 }
 
-.role-admin { background: rgba(59, 130, 246, 0.2); color: #93C5FD; }
-.role-forwarder { background: rgba(16, 185, 129, 0.2); color: #6EE7B7; }
-.role-supervisor { background: rgba(245, 158, 11, 0.2); color: #FCD34D; }
-.role-cliente { background: rgba(139, 92, 246, 0.2); color: #C4B5FD; }
-.role-soporte { background: rgba(236, 72, 153, 0.2); color: #F9A8D4; }
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.25rem 0.7rem;
-  border-radius: 2rem;
-  font-size: 0.7rem;
-  font-weight: 600;
+.hash-pill {
+  color: #bfdbfe;
+  background: rgba(59, 130, 246, 0.14);
 }
 
-.status-active {
-  background: rgba(16, 185, 129, 0.15);
-  color: #6EE7B7;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+.table-wrap {
+  overflow-x: auto;
 }
 
-.status-inactive {
-  background: rgba(239, 68, 68, 0.15);
-  color: #FCA5A5;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.actions-cell {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.action-icon {
-  background: rgba(255, 255, 255, 0.05);
-  border: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 0.7rem;
-  color: #94A3B8;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.action-icon:hover {
-  background: #3B82F6;
-  color: white;
-  transform: translateY(-2px);
-}
-
-.action-icon.danger:hover {
-  background: #EF4444;
-}
-
-/* ----- MODALES ----- */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
+table {
   width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
+  min-width: 1060px;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+}
+
+th {
+  color: #93c5fd;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+td {
+  color: #dbeafe;
+}
+
+.identity {
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 1000;
+  gap: 0.75rem;
 }
 
-.modal {
-  background: rgba(15, 25, 45, 0.95);
-  backdrop-filter: blur(16px);
-  border-radius: 1.5rem;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
+.identity > span {
+  width: 2.4rem;
+  height: 2.4rem;
+  display: grid;
+  place-items: center;
+  border-radius: 0.8rem;
+  color: #fff;
+  background: linear-gradient(135deg, #0f766e, #2563eb);
+  font-weight: 900;
 }
 
-.modal.small {
-  max-width: 400px;
+.identity strong {
+  display: block;
+  color: #fff;
 }
 
-.modal-header {
+.role-admin { color: #bfdbfe; background: rgba(59, 130, 246, 0.18); }
+.role-forwarder { color: #a7f3d0; background: rgba(16, 185, 129, 0.16); }
+.role-supervisor { color: #fde68a; background: rgba(245, 158, 11, 0.16); }
+.role-cliente { color: #ddd6fe; background: rgba(139, 92, 246, 0.16); }
+.role-soporte { color: #fbcfe8; background: rgba(236, 72, 153, 0.16); }
+.activo { color: #a7f3d0; background: rgba(16, 185, 129, 0.14); }
+.bloqueado { color: #fecaca; background: rgba(239, 68, 68, 0.14); }
+.suspendido { color: #fde68a; background: rgba(245, 158, 11, 0.14); }
+
+.row-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.row-actions button,
+.pagination button,
+.modal-card header button,
+.drawer-close {
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.7rem;
+  color: #bfdbfe;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.pagination button:disabled {
+  opacity: 0.45;
+}
+
+.audit-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.audit-strip article {
+  display: flex;
+  gap: 0.8rem;
+  padding: 1rem;
+  border-radius: 1rem;
+}
+
+.audit-strip i {
+  color: #60a5fa;
+}
+
+.audit-strip strong {
+  display: block;
+  color: #fff;
+}
+
+.audit-strip span {
+  color: #94a3b8;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.modal-card {
+  width: min(100%, 520px);
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-radius: 1.25rem;
+}
+
+.modal-card header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.modal-header h3 {
+.modal-card h2,
+.audit-drawer h3 {
+  margin: 0;
+  color: #fff;
+}
+
+.bcrypt-preview {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: white;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border-radius: 0.9rem;
+  color: #bfdbfe;
+  background: rgba(59, 130, 246, 0.12);
 }
 
-.close-btn {
-  background: none;
-  border: none;
-  color: #94A3B8;
-  font-size: 1.2rem;
-  cursor: pointer;
+.audit-drawer {
+  position: fixed;
+  z-index: 21;
+  right: 1rem;
+  top: 6rem;
+  width: min(92vw, 360px);
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-radius: 1.25rem;
 }
 
-.modal-body {
-  padding: 1.5rem;
+.drawer-close {
+  margin-left: auto;
 }
 
-.form-group {
-  margin-bottom: 1rem;
+.audit-drawer p,
+.audit-drawer span {
+  color: #94a3b8;
 }
 
-.form-group label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #CBD5E1;
-  margin-bottom: 0.3rem;
+.audit-drawer div {
+  display: grid;
+  gap: 0.3rem;
 }
 
-.form-group input, .form-group select {
-  width: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 1rem;
-  padding: 0.7rem 1rem;
-  color: white;
-  font-size: 0.9rem;
+.audit-drawer strong,
+code {
+  color: #e0f2fe;
 }
 
-.form-group input:focus, .form-group select:focus {
-  outline: none;
-  border-color: #3B82F6;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.8rem;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.warning-text {
-  color: #FCA5A5;
-  font-size: 0.8rem;
-  margin-top: 0.5rem;
-}
-
-/* Skeleton y estados vacíos */
-.skeleton-list {
-  padding: 1rem;
-}
-.skeleton-row {
-  height: 60px;
-  background: linear-gradient(90deg, #1e293b, #334155, #1e293b);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 1rem;
-  margin-bottom: 0.5rem;
-}
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-.empty-state {
-  text-align: center;
-  padding: 3rem;
-  color: #94A3B8;
-}
-.empty-state i {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  opacity: 0.5;
-}
-.empty-state h4 {
-  color: white;
-  margin-bottom: 0.5rem;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .user-management {
-    padding: 1rem;
-  }
-  .table-header {
-    display: none;
-  }
-  .table-row {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    margin-bottom: 0.5rem;
-  }
-  .table-row > div {
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
-  }
-  .table-row > div::before {
-    content: attr(data-label);
-    font-weight: 600;
-    color: #94A3B8;
-  }
-  .user-cell::before { content: "Usuario"; }
-  .email-cell::before { content: "Email"; }
-  .role-cell::before { content: "Rol"; }
-  .status-cell::before { content: "Estado"; }
-  .actions-cell::before { content: "Acciones"; }
-  .actions-cell {
-    justify-content: flex-end;
-  }
-  .filters-bar {
-    flex-direction: column;
+@media (max-width: 860px) {
+  .toolbar {
+    grid-template-columns: 1fr;
   }
 }
 </style>

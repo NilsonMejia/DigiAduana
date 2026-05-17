@@ -48,6 +48,7 @@ const menusByRole = {
   admin: [
     { label: 'Resumen', name: 'AdminDashboard', icon: 'fas fa-chart-pie' },
     { label: 'Usuarios y roles', name: 'AdminUsers', icon: 'fas fa-users-gear' },
+    { label: 'Monitoreo servidor', name: 'AdminServerMonitor', icon: 'fas fa-server' },
     { label: 'Notificaciones', name: 'AdminNotifications', icon: 'fas fa-bell' },
     { label: 'Estadisticas', name: 'AdminStats', icon: 'fas fa-chart-line' },
     { label: 'Configuracion', name: 'AdminSettings', icon: 'fas fa-sliders' },
