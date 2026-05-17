@@ -14,12 +14,10 @@
 .public-layout {
   min-height: 100vh;
   display: grid;
-  place-items: center;
-  padding: 1.5rem;
-  background: var(--surface-alt);
+ 
 }
 
 .public-layout__container {
-  width: min(100%, 54rem);
+  width: 100%;
 }
 </style>

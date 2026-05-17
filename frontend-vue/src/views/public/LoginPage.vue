@@ -106,7 +106,7 @@
             </button>
 
             <div class="form-footer">
-              <button type="button" class="footer-link" @click="goToTracking">
+              <button type="button" class="footer-link" @click="$emit('navigate', '/seguimiento')">
                 <i class="fas fa-search"></i> Consultar seguimiento público
               </button>
             </div>
@@ -119,13 +119,11 @@
 
 <script setup>
 import { reactive, ref, onMounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
 import { api, saveSession } from '../../services/api';
 // Importamos la imagen del navbar
 import iconNavbar from '../../assets/icon-navbar.png';
 
-const router = useRouter();
-const route = useRoute();
+const emit = defineEmits(['navigate', 'session-change']);
 
 const loading = ref(false);
 const serverError = ref('');
@@ -159,21 +157,13 @@ async function submit() {
       body: JSON.stringify(form)
     });
     saveSession(data);
-    const redirect = route.query.redirect;
-    if (redirect && typeof redirect === 'string') {
-      router.push(redirect);
-    } else {
-      router.push({ name: 'RoleDashboard' });
-    }
+    emit('session-change');
+    emit('navigate', '/dashboard');
   } catch (error) {
     serverError.value = error.message || 'Error de autenticación. Verifica tus credenciales.';
   } finally {
     loading.value = false;
   }
-}
-
-function goToTracking() {
-  router.push({ name: 'PublicTracking' });
 }
 
 // Crear partículas dinámicas en el fondo

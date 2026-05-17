@@ -4,8 +4,9 @@
     
     <nav class="navbar">
       <div class="nav-brand">
-        <img :src="iconNavbar" alt="Icono DigiAduana" class="logo-img" />
-        
+        <div class="logo-icon">
+          <i class="fas fa-passport"></i>
+        </div>
         <div class="logo-text-wrapper">
           <div class="logo-text">
             <span class="text-digi">Digi</span><span class="text-aduana">Aduana</span>
@@ -29,10 +30,7 @@
         <h1>Automatización <span class="gradient">inteligente</span> de aduanas</h1>
         <p>Gestiona tus operaciones de importación y exportación con la tecnología más avanzada. Seguimiento en tiempo real, documentación digital y cumplimiento normativo.</p>
         <div class="hero-buttons">
-          <button class="btn-primary" @click="goToRegistro">
-            <i class="fas fa-user-plus"></i> Registrarse gratis
-          </button>
-          <button class="btn-secondary" @click="scrollToTracking">
+          <button class="btn-primary" @click="scrollToTracking">
             <i class="fas fa-search"></i> Seguimiento de carga
           </button>
         </div>
@@ -111,10 +109,10 @@
 
       <section class="cta-section">
         <div class="cta-card">
-          <h3>¿Listo para digitalizar tu operación aduanera?</h3>
-          <p>Únete a los freight forwarders que ya confían en DigiAduana.</p>
-          <button class="btn-primary large" @click="goToRegistro">
-            <i class="fas fa-rocket"></i> Comenzar ahora
+          <h3>¿Listo para gestionar tu operación aduanera?</h3>
+          <p>Accede a tu panel de control seguro.</p>
+          <button class="btn-primary large" @click="goToLogin">
+            <i class="fas fa-sign-in-alt"></i> Iniciar sesión
           </button>
         </div>
       </section>
@@ -123,7 +121,9 @@
     <footer class="footer">
       <div class="footer-content">
         <div class="footer-brand footer-brand-premium">
-          <img :src="iconNavbar" alt="Icono DigiAduana" class="logo-img small" />
+          <div class="logo-icon small">
+            <i class="fas fa-passport"></i>
+          </div>
           <div class="logo-text-wrapper">
             <div class="logo-text small">
               <span class="text-digi">Digi</span><span class="text-aduana">Aduana</span>
@@ -135,7 +135,6 @@
           <div class="link-group">
             <h4>Plataforma</h4>
             <a href="#" @click.prevent="goToLogin">Iniciar sesión</a>
-            <a href="#" @click.prevent="goToRegistro">Registrarse</a>
             <a href="#" @click.prevent="scrollToTracking">Seguimiento</a>
           </div>
           <div class="link-group">
@@ -156,7 +155,6 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import iconNavbar from '../../assets/icon-navbar.png';
 
 const router = useRouter();
 
@@ -164,19 +162,15 @@ const trackingCode = ref('');
 const trackingLoading = ref(false);
 const trackingResult = ref(null);
 
+function goToLogin() {
+  router.push('/login');  // Ruta literal, más seguro
+}
+
 function scrollToTracking() {
   const element = document.getElementById('tracking-section');
   if (element) {
     element.scrollIntoView({ behavior: 'smooth' });
   }
-}
-
-function goToLogin() {
-  router.push({ name: 'Login' });
-}
-
-function goToRegistro() {
-  router.push('/registro');
 }
 
 async function trackShipment() {
@@ -277,29 +271,31 @@ async function trackShipment() {
   background: radial-gradient(circle at center, rgba(59, 130, 246, 0.1), transparent 70%);
 }
 
-.logo-img {
+.logo-icon {
   width: 48px;
   height: 48px;
-  object-fit: contain;
-  -webkit-mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
-  mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
-  filter: drop-shadow(0 0 12px rgba(0, 212, 255, 0.5));
+  background: linear-gradient(135deg, #1E3A8A, #3B82F6);
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  color: white;
+  box-shadow: 0 8px 20px rgba(59,130,246,0.4);
   transition: transform 0.3s ease;
 }
 
-.logo-img.small {
+.logo-icon.small {
   width: 36px;
   height: 36px;
-  -webkit-mask-image: radial-gradient(circle at center, black 50%, transparent 100%);
-  mask-image: radial-gradient(circle at center, black 50%, transparent 100%);
-  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.4));
+  font-size: 1.2rem;
+  box-shadow: 0 4px 12px rgba(59,130,246,0.3);
 }
 
-.nav-brand:hover .logo-img {
+.nav-brand:hover .logo-icon {
   transform: scale(1.1) rotate(-5deg);
 }
 
-/* --- ESTILO DE LETRAS TIPO IMAGEN (Derecha) --- */
 .logo-text-wrapper {
   display: flex;
   flex-direction: column;
@@ -309,10 +305,10 @@ async function trackShipment() {
 
 .logo-text {
   font-family: 'Inter', sans-serif;
-  font-size: 1.9rem; /* Letras gruesas y grandes */
-  font-weight: 900; /* Extra bold */
-  letter-spacing: -1.5px; /* Letras unidas como en la imagen */
-  filter: drop-shadow(0px 3px 4px rgba(0,0,0,0.6)); /* Sombra 3D */
+  font-size: 1.9rem;
+  font-weight: 900;
+  letter-spacing: -1.5px;
+  filter: drop-shadow(0px 3px 4px rgba(0,0,0,0.6));
 }
 
 .logo-text.small {
@@ -320,7 +316,6 @@ async function trackShipment() {
 }
 
 .text-digi {
-  /* Azul degradado brillante */
   background: linear-gradient(180deg, #00D4FF 0%, #0066FF 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -328,7 +323,6 @@ async function trackShipment() {
 }
 
 .text-aduana {
-  /* Plata/Blanco para contraste en fondo oscuro (imitando el navy de tu foto pero visible) */
   background: linear-gradient(180deg, #FFFFFF 0%, #A0B4CE 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -746,12 +740,6 @@ async function trackShipment() {
 
 .footer-brand-premium {
   text-align: center;
-}
-
-.footer-brand p {
-  font-size: 0.8rem;
-  color: #94A3B8;
-  margin-top: 0.8rem;
 }
 
 .footer-links {
