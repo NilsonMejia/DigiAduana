@@ -7,11 +7,11 @@ VALUES
 (3, 'Agroexportadora Lempa S.A.', 'JURIDICA', '0614-070118-103-5', '774100-1', 'Exportacion agroindustrial', 'Santa Ana, El Salvador', '+503 2440-9900', 'logistica@agrolempa.test', 'Carlos Rivas', 'ACTIVO');
 
 -- 2. Usuarios operativos
-INSERT INTO usuarios (id, nombre, correo, password_hash, rol_id, cliente_id, estado)
+INSERT INTO usuarios (id, nombre, correo, password_hash, rol_id, cliente_id, estado, email_verificado)
 VALUES
-(2, 'Sofia Alvarado', 'supervisor@digiaduana.local', '$2b$10$QP6Hvb4EjmtRl6vVl6w/feNtRCJ8fThN.PBjiEggEzH4lRnpYaUCC', 2, NULL, 'ACTIVO'),
-(3, 'Mario Escobar', 'forwarder@digiaduana.local', '$2b$10$QP6Hvb4EjmtRl6vVl6w/feNtRCJ8fThN.PBjiEggEzH4lRnpYaUCC', 3, NULL, 'ACTIVO'),
-(4, 'Rosa Hernandez', 'cliente@textilespacifico.test', '$2b$10$QP6Hvb4EjmtRl6vVl6w/feNtRCJ8fThN.PBjiEggEzH4lRnpYaUCC', 4, 2, 'ACTIVO');
+(2, 'Sofia Alvarado', 'supervisor@digiaduana.local', '$2b$10$QP6Hvb4EjmtRl6vVl6w/feNtRCJ8fThN.PBjiEggEzH4lRnpYaUCC', 2, NULL, 'ACTIVO', 1),
+(3, 'Mario Escobar', 'forwarder@digiaduana.local', '$2b$10$QP6Hvb4EjmtRl6vVl6w/feNtRCJ8fThN.PBjiEggEzH4lRnpYaUCC', 3, NULL, 'ACTIVO', 1),
+(4, 'Rosa Hernandez', 'cliente@textilespacifico.test', '$2b$10$QP6Hvb4EjmtRl6vVl6w/feNtRCJ8fThN.PBjiEggEzH4lRnpYaUCC', 4, 2, 'ACTIVO', 1);
 
 -- 3. Expediente de importacion aprobado
 INSERT INTO expedientes_aduanales (id, codigo, cliente_id, tipo_operacion, regimen, aduana_ingreso, aduana_salida, descripcion, responsable_id, estado, fecha_apertura)

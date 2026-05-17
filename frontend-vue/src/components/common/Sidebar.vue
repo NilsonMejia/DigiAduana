@@ -52,6 +52,9 @@ const menusByRole = {
   ],
   supervisor: [
     { label: 'Dashboard gerencial', name: 'SupervisorDashboard', icon: 'K' },
+    { label: 'Expedientes', name: 'SupervisorExpedientes', icon: 'E' },
+    { label: 'Validacion documental', name: 'SupervisorDocuments', icon: 'D' },
+    { label: 'Validacion DTE', name: 'SupervisorFacturacionDTE', icon: '$' },
     { label: 'Reportes operativos', name: 'SupervisorReportes', icon: 'R' }
   ],
   cliente: [

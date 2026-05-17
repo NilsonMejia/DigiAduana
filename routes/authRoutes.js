@@ -4,6 +4,7 @@ const controller = require('../controllers/authController');
 
 router.post('/login', controller.login);
 router.post('/registro', controller.registro);
+router.get('/verificar-correo', controller.verificarCorreo);
 router.get('/perfil', auth, controller.perfil);
 
 module.exports = router;

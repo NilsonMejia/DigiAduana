@@ -7,7 +7,7 @@
       </div>
       <div class="list__actions">
         <button type="button" @click="router.push({ name: 'RoleDashboard' })">Dashboard</button>
-        <button type="button" class="list__primary" @click="router.push({ name: 'ForwarderExpedienteCreate' })">
+        <button type="button" class="list__primary" @click="router.push({ name: createRouteName })">
           Nuevo expediente
         </button>
       </div>
@@ -57,8 +57,10 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../../services/api';
+import { useAuthStore } from '../../stores/authStore';
 
 const router = useRouter();
+const auth = useAuthStore();
 const loading = ref(false);
 const error = ref('');
 const expedientes = ref([]);
@@ -67,6 +69,14 @@ const filters = reactive({
   search: '',
   estado: ''
 });
+
+const createRouteName = computed(() =>
+  auth.userRole === 'supervisor' ? 'SupervisorExpedienteCreate' : 'ForwarderExpedienteCreate'
+);
+
+const detailRouteName = computed(() =>
+  auth.userRole === 'supervisor' ? 'SupervisorExpedienteDetail' : 'ForwarderExpedienteDetail'
+);
 
 const filteredExpedientes = computed(() => {
   const term = filters.search.toLowerCase();
@@ -80,7 +90,7 @@ const filteredExpedientes = computed(() => {
 });
 
 function openDetail(item) {
-  router.push({ name: 'ForwarderExpedienteDetail', params: { id: item.id } });
+  router.push({ name: detailRouteName.value, params: { id: item.id } });
 }
 
 async function loadExpedientes() {

@@ -155,15 +155,18 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '../../stores/authStore';
 
 const router = useRouter();
+const auth = useAuthStore();
 
 const trackingCode = ref('');
 const trackingLoading = ref(false);
 const trackingResult = ref(null);
 
 function goToLogin() {
-  router.push('/login');  // Ruta literal, más seguro
+  auth.logout();
+  router.push({ name: 'Login' });
 }
 
 function scrollToTracking() {

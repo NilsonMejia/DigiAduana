@@ -47,6 +47,9 @@ CREATE TABLE usuarios (
   rol_id INT NOT NULL,
   cliente_id INT NULL,
   estado ENUM('ACTIVO','INACTIVO','BLOQUEADO') DEFAULT 'ACTIVO',
+  email_verificado TINYINT(1) DEFAULT 0,
+  verification_token_hash VARCHAR(255) NULL,
+  verification_expires DATETIME NULL,
   ultimo_acceso DATETIME NULL,
   creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -208,8 +211,8 @@ INSERT INTO clientes (id, nombre, tipo_persona, nit, nrc, giro, direccion, telef
 (1, 'Importadora Cuscatlan S.A. de C.V.', 'JURIDICA', '0614-010190-101-3', '123456-7', 'Importacion y distribucion', 'San Salvador, El Salvador', '+503 2200-0000', 'logistica@cuscatlan.test', 'Ana Martinez');
 
 -- Usuario administrador inicial. Credenciales: admin@digiaduana.local / password
-INSERT INTO usuarios (id, nombre, correo, password_hash, rol_id, estado) VALUES
-(1, 'Administrador DigiAduana', 'admin@digiaduana.local', '$2b$10$QP6Hvb4EjmtRl6vVl6w/feNtRCJ8fThN.PBjiEggEzH4lRnpYaUCC', 1, 'ACTIVO');
+INSERT INTO usuarios (id, nombre, correo, password_hash, rol_id, estado, email_verificado) VALUES
+(1, 'Administrador DigiAduana', 'admin@digiaduana.local', '$2b$10$QP6Hvb4EjmtRl6vVl6w/feNtRCJ8fThN.PBjiEggEzH4lRnpYaUCC', 1, 'ACTIVO', 1);
 
 INSERT INTO expedientes_aduanales
 (id, codigo, cliente_id, tipo_operacion, regimen, aduana_ingreso, aduana_salida, descripcion, responsable_id, estado)

@@ -46,6 +46,8 @@ Configura `.env` con:
 - `JWT_SECRET`, `JWT_EXPIRES_IN`: firma y duracion de tokens.
 - `MAX_PDF_MB`: limite de carga de PDF.
 - `HACIENDA_API_URL`, `NAVIERAS_API_URL`: endpoints reales o mocks locales.
+- `PUBLIC_APP_URL`: URL publica usada para enlaces de validacion por correo.
+- `RESEND_API_KEY`, `EMAIL_FROM`: envio real de correos de validacion. Si no se configuran, el enlace se imprime en consola para desarrollo.
 
 ## Estructura principal
 

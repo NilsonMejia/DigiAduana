@@ -72,6 +72,19 @@ Las rutas públicas son:
 
 Las rutas privadas son accesibles según `meta.requiredRole`.
 
+## 4.1 Validacion de correo en bases existentes
+
+Si ya tenias la base creada antes de esta version, agrega los campos de validacion:
+
+```sql
+ALTER TABLE usuarios
+  ADD COLUMN email_verificado TINYINT(1) DEFAULT 0 AFTER estado,
+  ADD COLUMN verification_token_hash VARCHAR(255) NULL AFTER email_verificado,
+  ADD COLUMN verification_expires DATETIME NULL AFTER verification_token_hash;
+
+UPDATE usuarios SET email_verificado = 1 WHERE correo LIKE '%@digiaduana.local' OR id = 1;
+```
+
 ## 5. Roles y navegación
 
 Los roles utilizados son:

@@ -135,6 +135,37 @@ const routes = [
         name: 'SupervisorReportes',
         component: () => import('../views/supervisor/ReportesOperativos.vue'),
         meta: { title: 'Reportes operativos' }
+      },
+      {
+        path: 'expedientes',
+        name: 'SupervisorExpedientes',
+        component: () => import('../views/forwarder/ExpedienteList.vue'),
+        meta: { title: 'Revision de expedientes' }
+      },
+      {
+        path: 'expedientes/nuevo',
+        name: 'SupervisorExpedienteCreate',
+        component: () => import('../views/forwarder/ExpedienteForm.vue'),
+        meta: { title: 'Nuevo expediente' }
+      },
+      {
+        path: 'expedientes/:id',
+        name: 'SupervisorExpedienteDetail',
+        component: () => import('../views/forwarder/ExpedienteDetail.vue'),
+        meta: { title: 'Detalle de expediente' },
+        props: true
+      },
+      {
+        path: 'documentos',
+        name: 'SupervisorDocuments',
+        component: () => import('../views/forwarder/DocumentManagement.vue'),
+        meta: { title: 'Validacion documental' }
+      },
+      {
+        path: 'facturacion-dte',
+        name: 'SupervisorFacturacionDTE',
+        component: () => import('../views/forwarder/FacturacionDTE.vue'),
+        meta: { title: 'Validacion DTE' }
       }
     ]
   },

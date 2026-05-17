@@ -106,7 +106,7 @@
             </button>
 
             <div class="form-footer">
-              <button type="button" class="footer-link" @click="$emit('navigate', '/seguimiento')">
+              <button type="button" class="footer-link" @click="router.push({ name: 'PublicTracking' })">
                 <i class="fas fa-search"></i> Consultar seguimiento público
               </button>
             </div>
@@ -119,20 +119,21 @@
 
 <script setup>
 import { reactive, ref, onMounted } from 'vue';
-import { api, saveSession } from '../../services/api';
-// Importamos la imagen del navbar
+import { useRoute, useRouter } from 'vue-router';
+import { useAuthStore } from '../../stores/authStore';
 import iconNavbar from '../../assets/icon-navbar.png';
 
-const emit = defineEmits(['navigate', 'session-change']);
-
+const route = useRoute();
+const router = useRouter();
+const auth = useAuthStore();
 const loading = ref(false);
 const serverError = ref('');
 const showPassword = ref(false);
 const particlesContainer = ref(null);
 
 const form = reactive({
-  correo: 'admin@digiaduana.local',
-  password: 'password'
+  correo: '',
+  password: ''
 });
 
 const errors = reactive({
@@ -152,13 +153,8 @@ async function submit() {
 
   loading.value = true;
   try {
-    const data = await api('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(form)
-    });
-    saveSession(data);
-    emit('session-change');
-    emit('navigate', '/dashboard');
+    await auth.login(form);
+    router.replace(route.query.redirect || { name: 'RoleDashboard' });
   } catch (error) {
     serverError.value = error.message || 'Error de autenticación. Verifica tus credenciales.';
   } finally {
@@ -188,14 +184,14 @@ onMounted(() => {
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800;900&display=swap');
+
 /* ----- Reset y fuentes ----- */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800;900&display=swap');
 
 .login-wrapper {
   min-height: 100vh;

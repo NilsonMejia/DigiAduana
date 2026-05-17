@@ -97,17 +97,17 @@
             </span>
           </div>
           <div class="status-cell">
-            <span class="status-badge" :class="user.estado === 'activo' ? 'status-active' : 'status-inactive'">
-              <i :class="user.estado === 'activo' ? 'fas fa-check-circle' : 'fas fa-ban'"></i>
-              {{ user.estado === 'activo' ? 'Activo' : 'Inactivo' }}
+            <span class="status-badge" :class="isActive(user) ? 'status-active' : 'status-inactive'">
+              <i :class="isActive(user) ? 'fas fa-check-circle' : 'fas fa-ban'"></i>
+              {{ isActive(user) ? 'Activo' : 'Inactivo' }}
             </span>
           </div>
           <div class="actions-cell">
             <button class="action-icon" @click="openEditRoleModal(user)" title="Cambiar rol">
               <i class="fas fa-user-tag"></i>
             </button>
-            <button class="action-icon" @click="toggleUserStatus(user)" :title="user.estado === 'activo' ? 'Desactivar' : 'Activar'">
-              <i :class="user.estado === 'activo' ? 'fas fa-ban' : 'fas fa-check-circle'"></i>
+            <button class="action-icon" @click="toggleUserStatus(user)" :title="isActive(user) ? 'Desactivar' : 'Activar'">
+              <i :class="isActive(user) ? 'fas fa-ban' : 'fas fa-check-circle'"></i>
             </button>
             <button class="action-icon danger" @click="confirmDelete(user)" title="Eliminar">
               <i class="fas fa-trash-alt"></i>
@@ -140,11 +140,7 @@
             <label><i class="fas fa-tag"></i> Rol</label>
             <select v-model="newUser.rol" required>
               <option value="">Seleccionar rol</option>
-              <option value="admin">Administrador</option>
-              <option value="forwarder">Freight Forwarder</option>
-              <option value="supervisor">Supervisor</option>
-              <option value="cliente">Cliente</option>
-              <option value="soporte">Soporte técnico</option>
+              <option v-for="role in roles" :key="role.id" :value="role.actor">{{ roleLabel(role) }}</option>
             </select>
           </div>
           <div class="modal-footer">
@@ -168,11 +164,7 @@
           <div class="form-group">
             <label>Nuevo rol</label>
             <select v-model="newRole">
-              <option value="admin">Administrador</option>
-              <option value="forwarder">Freight Forwarder</option>
-              <option value="supervisor">Supervisor</option>
-              <option value="cliente">Cliente</option>
-              <option value="soporte">Soporte técnico</option>
+              <option v-for="role in roles" :key="role.id" :value="role.actor">{{ roleLabel(role) }}</option>
             </select>
           </div>
         </div>
@@ -212,6 +204,13 @@ import { api } from '../../services/api';
 // Estado
 const loading = ref(false);
 const users = ref([]);
+const roles = ref([
+  { id: 1, actor: 'admin', nombre: 'ADMINISTRADOR' },
+  { id: 2, actor: 'supervisor', nombre: 'SUPERVISOR' },
+  { id: 3, actor: 'forwarder', nombre: 'FREIGHT_FORWARDER' },
+  { id: 4, actor: 'cliente', nombre: 'CLIENTE' },
+  { id: 5, actor: 'soporte', nombre: 'SOPORTE_TECNICO' }
+]);
 const searchTerm = ref('');
 const roleFilter = ref('');
 const statusFilter = ref('');
@@ -236,14 +235,14 @@ const newUser = ref({
 
 // Computed para conteos
 const internalUsersCount = computed(() => {
-  return users.value.filter(u => u.rol !== 'cliente' && u.estado === 'activo').length;
+  return users.value.filter(u => u.rol !== 'cliente' && isActive(u)).length;
 });
 const clientsCount = computed(() => {
-  return users.value.filter(u => u.rol === 'cliente' && u.estado === 'activo').length;
+  return users.value.filter(u => u.rol === 'cliente' && isActive(u)).length;
 });
 const activeRolesCount = computed(() => {
-  const roles = new Set(users.value.filter(u => u.estado === 'activo').map(u => u.rol));
-  return roles.size;
+  const activeRoleNames = new Set(users.value.filter(isActive).map(u => u.rol));
+  return activeRoleNames.size;
 });
 
 // Filtrado de usuarios
@@ -261,13 +260,51 @@ const filteredUsers = computed(() => {
     result = result.filter(u => u.rol === roleFilter.value);
   }
   if (statusFilter.value) {
-    result = result.filter(u => u.estado === statusFilter.value);
+    result = result.filter(u => normalizeStatus(u.estado) === statusFilter.value);
   }
   return result;
 });
 
 // Funciones auxiliares
+function normalizeRole(rol) {
+  const key = String(rol || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+
+  const map = {
+    administrador: 'admin',
+    freight_forwarder: 'forwarder',
+    soporte_tecnico: 'soporte'
+  };
+  return map[key] || key;
+}
+
+function normalizeStatus(estado) {
+  return String(estado || '').toLowerCase() === 'activo' ? 'activo' : 'inactivo';
+}
+
+function isActive(user) {
+  return normalizeStatus(user.estado) === 'activo';
+}
+
+function normalizeUser(user) {
+  return {
+    ...user,
+    rol: user.actor || normalizeRole(user.rol),
+    estado: normalizeStatus(user.estado)
+  };
+}
+
+function roleLabel(role) {
+  return formatRol(role.actor || normalizeRole(role.nombre));
+}
+
 function formatRol(rol) {
+  const normalized = normalizeRole(rol);
   const map = {
     admin: 'Administrador',
     forwarder: 'Freight Forwarder',
@@ -275,10 +312,11 @@ function formatRol(rol) {
     cliente: 'Cliente',
     soporte: 'Soporte técnico'
   };
-  return map[rol] || rol;
+  return map[normalized] || rol;
 }
 
 function getRoleClass(rol) {
+  const normalized = normalizeRole(rol);
   const map = {
     admin: 'role-admin',
     forwarder: 'role-forwarder',
@@ -286,10 +324,11 @@ function getRoleClass(rol) {
     cliente: 'role-cliente',
     soporte: 'role-soporte'
   };
-  return map[rol] || 'role-default';
+  return map[normalized] || 'role-default';
 }
 
 function getRoleIcon(rol) {
+  const normalized = normalizeRole(rol);
   const map = {
     admin: 'fas fa-crown',
     forwarder: 'fas fa-ship',
@@ -297,7 +336,15 @@ function getRoleIcon(rol) {
     cliente: 'fas fa-user',
     soporte: 'fas fa-headset'
   };
-  return map[rol] || 'fas fa-user';
+  return map[normalized] || 'fas fa-user';
+}
+
+async function loadRoles() {
+  try {
+    roles.value = await api('/usuarios/roles');
+  } catch (error) {
+    console.error('Error al cargar roles:', error);
+  }
 }
 
 // Cargar usuarios desde API
@@ -305,7 +352,7 @@ async function loadUsers() {
   loading.value = true;
   try {
     const response = await api('/usuarios');
-    users.value = response;
+    users.value = response.map(normalizeUser);
   } catch (error) {
     console.error('Error al cargar usuarios:', error);
     // Datos mock en caso de error
@@ -333,7 +380,7 @@ async function addUser() {
       method: 'POST',
       body: JSON.stringify(newUser.value)
     });
-    users.value.push({ ...created, estado: 'activo' });
+    users.value.unshift(normalizeUser({ ...created, rol: newUser.value.rol }));
     closeModals();
     newUser.value = { nombre: '', correo: '', password: '', rol: '' };
   } catch (error) {
@@ -372,13 +419,13 @@ async function updateRole() {
 
 // Activar/Desactivar usuario
 async function toggleUserStatus(user) {
-  const newStatus = user.estado === 'activo' ? 'inactivo' : 'activo';
+  const newStatus = isActive(user) ? 'INACTIVO' : 'ACTIVO';
   try {
     await api(`/usuarios/${user.id}`, {
       method: 'PATCH',
       body: JSON.stringify({ estado: newStatus })
     });
-    user.estado = newStatus;
+    user.estado = normalizeStatus(newStatus);
   } catch (error) {
     console.error('Error al cambiar estado:', error);
     alert('No se pudo cambiar el estado del usuario');
@@ -423,6 +470,7 @@ function closeModals() {
 }
 
 onMounted(() => {
+  loadRoles();
   loadUsers();
 });
 </script>
