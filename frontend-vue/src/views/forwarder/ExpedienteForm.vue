@@ -16,14 +16,14 @@
           Cliente
           <input v-model.trim="clientSearch" type="search" placeholder="Buscar cliente por nombre, NIT o contacto" />
           <select v-model.number="form.cliente_id" :class="{ 'is-invalid': errors.cliente_id }" :disabled="clientsLoading">
-            <option :value="0">{{ clientsLoading ? 'Cargando clientes...' : 'Selecciona un cliente' }}</option>
+            <option :value="0" disabled>{{ clientsLoading ? 'Cargando clientes...' : 'Selecciona un cliente' }}</option>
             <option v-for="client in filteredClients" :key="client.id" :value="client.id">
-              {{ client.nombre }} - {{ client.nit }}
+              {{ client.nombre }} - NIT: {{ client.nit }}
             </option>
           </select>
           <small v-if="errors.cliente_id">{{ errors.cliente_id }}</small>
           <small v-else-if="selectedClient" class="form-page__hint">
-            {{ selectedClient.contacto_principal || 'Contacto no registrado' }} · {{ selectedClient.correo || 'sin correo' }}
+            {{ selectedClient.contacto_principal || 'Contacto no registrado' }} - {{ selectedClient.correo || 'sin correo' }}
           </small>
         </label>
 
@@ -91,6 +91,7 @@ const message = ref('');
 const serverError = ref('');
 const clients = ref([]);
 const clientSearch = ref('');
+
 const form = reactive({
   cliente_id: 0,
   tipo_operacion: '',
@@ -99,6 +100,7 @@ const form = reactive({
   aduana_salida: '',
   descripcion: ''
 });
+
 const errors = reactive({
   cliente_id: '',
   tipo_operacion: '',
@@ -178,7 +180,7 @@ async function loadClients() {
       form.cliente_id = clients.value[0].id;
     }
   } catch (error) {
-    serverError.value = error.message;
+    serverError.value = `No se pudieron cargar los clientes. ${error.message}`;
   } finally {
     clientsLoading.value = false;
   }
