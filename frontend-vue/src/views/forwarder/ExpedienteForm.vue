@@ -13,8 +13,15 @@
         <legend>Datos generales</legend>
 
         <label>
-          Cliente ID
-          <input v-model.number="form.cliente_id" :class="{ 'is-invalid': errors.cliente_id }" type="number" min="1" />
+          Cliente
+          <select v-model.number="form.cliente_id" :class="{ 'is-invalid': errors.cliente_id }" :disabled="loadingClientes">
+            <option value="0" disabled>
+              {{ loadingClientes ? 'Cargando clientes...' : 'Selecciona un cliente' }}
+            </option>
+            <option v-for="cliente in clientes" :key="cliente.id" :value="cliente.id">
+              {{ cliente.nombre }} (NIT: {{ cliente.nit }})
+            </option>
+          </select>
           <small v-if="errors.cliente_id">{{ errors.cliente_id }}</small>
         </label>
 
@@ -66,37 +73,61 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { reactive, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../../services/api';
 
 const router = useRouter();
 const loading = ref(false);
+const loadingClientes = ref(false);
 const message = ref('');
 const serverError = ref('');
+
+// Arreglo para guardar los clientes traídos del backend
+const clientes = ref([]);
+
 const form = reactive({
-  cliente_id: 1,
+  cliente_id: 0, // Inicializado en 0 para forzar la selección
   tipo_operacion: '',
   regimen: '',
   aduana_ingreso: '',
   aduana_salida: '',
   descripcion: ''
 });
+
 const errors = reactive({
   cliente_id: '',
   tipo_operacion: '',
   regimen: ''
 });
 
+// Función para cargar los clientes desde tu API
+async function fetchClientes() {
+  loadingClientes.value = true;
+  try {
+    const data = await api('/clientes', { method: 'GET' });
+    clientes.value = data;
+  } catch (error) {
+    serverError.value = 'No se pudieron cargar los clientes. ' + error.message;
+  } finally {
+    loadingClientes.value = false;
+  }
+}
+
+// Ejecutar la carga de clientes apenas se monte el componente
+onMounted(() => {
+  fetchClientes();
+});
+
 function validate() {
-  errors.cliente_id = form.cliente_id > 0 ? '' : 'Selecciona un cliente valido.';
+  errors.cliente_id = form.cliente_id > 0 ? '' : 'Selecciona un cliente válido.';
   errors.tipo_operacion = form.tipo_operacion ? '' : 'Selecciona el tipo de operacion.';
   errors.regimen = form.regimen.length >= 4 ? '' : 'Escribe un regimen claro.';
   return !errors.cliente_id && !errors.tipo_operacion && !errors.regimen;
 }
 
 function resetForm() {
-  form.cliente_id = 1;
+  form.cliente_id = 0;
   form.tipo_operacion = '';
   form.regimen = '';
   form.aduana_ingreso = '';
