@@ -106,14 +106,8 @@
             </button>
 
             <div class="form-footer">
-              <button type="button" class="footer-link" @click="router.push({ name: 'Register' })">
-                <i class="fas fa-user-plus"></i> Crear cuenta
-              </button>
               <button type="button" class="footer-link" @click="router.push({ name: 'PublicTracking' })">
                 <i class="fas fa-search"></i> Consultar seguimiento público
-              </button>
-              <button type="button" class="footer-link" @click="router.push({ name: 'VerifyEmail' })">
-                <i class="fas fa-envelope-circle-check"></i> Verificar codigo
               </button>
             </div>
           </form>
@@ -185,6 +179,9 @@ function createParticles() {
 }
 
 onMounted(() => {
+  if (route.query.pendiente === 'verificacion') {
+    serverError.value = 'Cuenta pendiente de verificación, revisa tu correo.';
+  }
   createParticles();
 });
 </script>

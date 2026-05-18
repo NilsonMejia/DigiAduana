@@ -12,11 +12,11 @@
  *   MOCK_MAX_DELAY=800
  *
  * Credenciales demo:
- *   admin@digiaduana.local / admin123
- *   forwarder@digiaduana.local / forwarder123
- *   supervisor@digiaduana.local / supervisor123
- *   cliente@digiaduana.local / cliente123
- *   soporte@digiaduana.local / soporte123
+ *   admin@digiaduana.local / Admin123
+ *   forwarder@digiaduana.local / Forwarder123
+ *   supervisor@digiaduana.local / Supervisor123
+ *   cliente@digiaduana.local / Cliente123
+ *   soporte@digiaduana.local / Soporte123
  *
  * El mock expone rutas en raiz (/auth/login) y tambien bajo /api (/api/auth/login)
  * para facilitar integracion con distintas configuraciones del frontend.
@@ -31,6 +31,7 @@ const morgan = require('morgan');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const multer = require('multer');
+const crypto = require('crypto');
 
 const app = express();
 const router = express.Router();
@@ -45,6 +46,8 @@ const MIN_DELAY = Number(process.env.MOCK_MIN_DELAY || 200);
 const MAX_DELAY = Number(process.env.MOCK_MAX_DELAY || 800);
 const ERROR_RATE = Number(process.env.MOCK_ERROR_RATE ?? 0);
 const CACHE_TTL_MS = 10_000;
+const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+const FRONTEND_URL = process.env.MOCK_FRONTEND_URL || `http://localhost:${PORT}`;
 
 const ROLES = Object.freeze({
   ADMIN: 'admin',
@@ -105,6 +108,98 @@ router.get('/health', (req, res) => {
   });
 });
 
+router.get('/verificar', (req, res) => {
+  const token = String(req.query.token || '').trim();
+  if (!token) return res.status(400).json({ mensaje: 'Token de verificacion requerido.' });
+
+  const user = db.usuarios.find((item) => item.verification_token === token);
+  if (!user) return res.status(404).json({ mensaje: 'Token de verificacion invalido o ya utilizado.' });
+
+  if (user.verification_expires_at && Date.now() > new Date(user.verification_expires_at).getTime()) {
+    return res.status(410).json({ mensaje: 'El token de verificacion expiro. Solicita reenvio al administrador.' });
+  }
+
+  user.estado = 'activo';
+  user.activo = true;
+  user.email_verificado = true;
+  user.verificado_en = new Date().toISOString();
+  delete user.verification_token;
+  delete user.verification_expires_at;
+
+  addAuditLog('usuarios.verify', user.id_usuario, `Cuenta verificada: ${user.correo}`);
+  res.json({ mensaje: 'Cuenta verificada correctamente. Ya puedes iniciar sesion.', usuario: publicUser(user) });
+});
+
+router.post('/validar-cuenta', (req, res) => {
+  const correo = String(req.body.email || req.body.correo || '').trim().toLowerCase();
+  const codigo = String(req.body.codigo || '').trim();
+  const nuevaPassword = String(req.body.nueva_password || req.body.password || req.body.nuevaPassword || '');
+
+  if (!correo || !codigo || !nuevaPassword) {
+    return res.status(400).json({ mensaje: 'email, codigo y nueva_password son obligatorios.' });
+  }
+
+  if (!/^\d{6}$/.test(codigo)) {
+    return res.status(400).json({ mensaje: 'El codigo debe tener 6 digitos.' });
+  }
+
+  if (nuevaPassword.length < 8) {
+    return res.status(400).json({ mensaje: 'La nueva contrasena debe tener al menos 8 caracteres.' });
+  }
+
+  const user = db.usuarios.find((item) => item.correo.toLowerCase() === correo);
+  if (!user) return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
+
+  if (user.estado === 'suspendido') {
+    return res.status(403).json({ mensaje: 'Cuenta suspendida. Contacte al administrador.' });
+  }
+
+  if (user.email_verificado && user.estado === 'activo') {
+    return res.status(409).json({ mensaje: 'La cuenta ya esta activa.' });
+  }
+
+  if (!user.verification_code || user.verification_code !== codigo) {
+    return res.status(400).json({ mensaje: 'Codigo de verificacion invalido.' });
+  }
+
+  if (user.verification_expires_at && Date.now() > new Date(user.verification_expires_at).getTime()) {
+    return res.status(410).json({ mensaje: 'El codigo expiro. Solicita un nuevo codigo.' });
+  }
+
+  user.password_hash = bcrypt.hashSync(nuevaPassword, 8);
+  user.estado = 'activo';
+  user.activo = true;
+  user.email_verificado = true;
+  user.verificado_en = new Date().toISOString();
+  delete user.verification_token;
+  delete user.verification_code;
+  delete user.verification_expires_at;
+
+  addAuditLog('usuarios.validate', user.id_usuario, `Cuenta validada con codigo: ${user.correo}`);
+  res.json({ mensaje: 'Cuenta validada correctamente. Ya puedes iniciar sesion.', usuario: publicUser(user) });
+});
+
+router.post('/reenviar-codigo', (req, res) => {
+  const correo = String(req.body.email || req.body.correo || '').trim().toLowerCase();
+  if (!correo) return res.status(400).json({ mensaje: 'email es obligatorio.' });
+
+  const user = db.usuarios.find((item) => item.correo.toLowerCase() === correo);
+  if (!user) return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
+
+  if (user.estado === 'suspendido') {
+    return res.status(403).json({ mensaje: 'Cuenta suspendida. Contacte al administrador.' });
+  }
+
+  if (user.estado === 'activo' && user.email_verificado) {
+    return res.status(409).json({ mensaje: 'La cuenta ya esta activa.' });
+  }
+
+  issueVerificationChallenge(user);
+  logVerificationEmail(user);
+  addAuditLog('usuarios.resend_code', user.id_usuario, `Codigo reenviado: ${user.correo}`);
+  res.json({ mensaje: 'Codigo reenviado. Revisa la consola del servidor.' });
+});
+
 router.post('/_reset', (req, res) => {
   db = buildSeed();
   cache.clear();
@@ -121,6 +216,26 @@ router.post('/auth/login', (req, res) => {
     return res.status(401).json({ mensaje: 'Credenciales invalidas.' });
   }
 
+  if (user.estado === 'pendiente_verificacion') {
+    return res.status(403).json({
+      mensaje: 'Verifica tu cuenta primero',
+      code: 'PENDING_VERIFICATION',
+      estado: user.estado
+    });
+  }
+
+  if (user.estado === 'suspendido') {
+    return res.status(403).json({
+      mensaje: 'Cuenta suspendida',
+      code: 'ACCOUNT_SUSPENDED',
+      estado: user.estado
+    });
+  }
+
+  if (user.estado && user.estado !== 'activo') {
+    return res.status(403).json({ mensaje: `Usuario ${user.estado}.`, estado: user.estado });
+  }
+
   if (!user.activo) {
     return res.status(403).json({ mensaje: 'Usuario inactivo.' });
   }
@@ -134,7 +249,8 @@ router.post('/auth/login', (req, res) => {
       rol: user.rol,
       actor: user.rol,
       permisos: ROLE_PERMISSIONS[user.rol] || [],
-      cliente_id: user.cliente_id || null
+      cliente_id: user.cliente_id || null,
+      estado: user.estado || 'activo'
     },
     JWT_SECRET,
     { expiresIn: '8h', issuer: 'digiaduana-mock', audience: 'digiaduana-frontend' }
@@ -402,10 +518,14 @@ router.get('/usuarios/roles', authenticate, authorize(ROLES.ADMIN), (req, res) =
 });
 
 router.post('/usuarios', authenticate, authorize(ROLES.ADMIN), (req, res) => {
-  const { nombre, correo, password, rol, cliente_id } = req.body;
+  const { nombre, correo, password, rol, cliente_id, telefono } = req.body;
 
   if (!nombre || !correo || !password || !rol) {
     return res.status(400).json({ mensaje: 'nombre, correo, password y rol son obligatorios.' });
+  }
+
+  if (String(password).length < 8) {
+    return res.status(400).json({ mensaje: 'La contrasena temporal debe tener al menos 8 caracteres.' });
   }
 
   if (!Object.values(ROLES).includes(rol)) {
@@ -418,18 +538,55 @@ router.post('/usuarios', authenticate, authorize(ROLES.ADMIN), (req, res) => {
 
   const user = {
     id_usuario: nextId(db.usuarios, 'id_usuario'),
-    nombre,
-    correo,
+    nombre: String(nombre).trim(),
+    correo: String(correo).trim().toLowerCase(),
     rol,
+    telefono: telefono ? String(telefono).trim() : '',
     cliente_id: rol === ROLES.CLIENTE ? Number(cliente_id) || null : null,
-    activo: true,
+    estado: 'pendiente_verificacion',
+    activo: false,
+    email_verificado: false,
     password_hash: bcrypt.hashSync(String(password), 8),
     creado_en: new Date().toISOString()
   };
+  issueVerificationChallenge(user);
 
   db.usuarios.push(user);
-  addAuditLog('usuarios.create', req.user.id_usuario, `Creado usuario ${correo}`);
-  res.status(201).json(publicUser(user));
+  logVerificationEmail(user);
+  addAuditLog('usuarios.create', req.user.id_usuario, `Creado usuario pendiente ${user.correo}`);
+  res.status(201).json({
+    mensaje: 'Usuario creado en estado pendiente_verificacion. Se envio enlace de verificacion simulado.',
+    usuario: publicUser(user)
+  });
+});
+
+router.patch('/usuarios/:id/suspender', authenticate, authorize(ROLES.ADMIN), (req, res) => {
+  const user = db.usuarios.find((item) => String(item.id_usuario) === String(req.params.id) || String(item.id) === String(req.params.id));
+  if (!user) return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
+  if (user.id_usuario === req.user.id_usuario) {
+    return res.status(400).json({ mensaje: 'No puedes suspender tu propia cuenta.' });
+  }
+
+  user.estado = 'suspendido';
+  user.activo = false;
+  user.jwt_revoked_at = new Date().toISOString();
+  addAuditLog('usuarios.suspend', req.user.id_usuario, `Suspendido usuario ${user.correo}`);
+  res.json({ mensaje: 'Usuario suspendido. Sus tokens quedan invalidados en el mock.', usuario: publicUser(user) });
+});
+
+router.patch('/usuarios/:id/activar', authenticate, authorize(ROLES.ADMIN), (req, res) => {
+  const user = db.usuarios.find((item) => String(item.id_usuario) === String(req.params.id) || String(item.id) === String(req.params.id));
+  if (!user) return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
+
+  user.estado = 'activo';
+  user.activo = true;
+  user.email_verificado = true;
+  user.verificado_en = user.verificado_en || new Date().toISOString();
+  delete user.verification_token;
+  delete user.verification_code;
+  delete user.verification_expires_at;
+  addAuditLog('usuarios.activate', req.user.id_usuario, `Activado usuario ${user.correo}`);
+  res.json({ mensaje: 'Usuario activado correctamente.', usuario: publicUser(user) });
 });
 
 router.patch('/usuarios/:id', authenticate, authorize(ROLES.ADMIN), (req, res) => {
@@ -444,8 +601,18 @@ router.patch('/usuarios/:id', authenticate, authorize(ROLES.ADMIN), (req, res) =
     if (!Object.values(ROLES).includes(rol)) return res.status(400).json({ mensaje: 'Rol no permitido.' });
     user.rol = rol;
   }
-  if (estado !== undefined) user.activo = String(estado).toLowerCase() === 'activo';
-  if (activo !== undefined) user.activo = Boolean(activo);
+  if (estado !== undefined) {
+    const normalizedEstado = String(estado).trim().toLowerCase();
+    if (!['activo', 'pendiente_verificacion', 'bloqueado', 'suspendido'].includes(normalizedEstado)) {
+      return res.status(400).json({ mensaje: 'Estado no permitido.' });
+    }
+    user.estado = normalizedEstado;
+    user.activo = normalizedEstado === 'activo';
+  }
+  if (activo !== undefined) {
+    user.activo = Boolean(activo);
+    user.estado = user.activo ? 'activo' : 'suspendido';
+  }
 
   addAuditLog('usuarios.update', req.user.id_usuario, `Actualizado usuario ${user.correo}`);
   res.json(publicUser(user));
@@ -463,8 +630,18 @@ router.put('/usuarios/:id', authenticate, authorize(ROLES.ADMIN), (req, res) => 
     if (!Object.values(ROLES).includes(rol)) return res.status(400).json({ mensaje: 'Rol no permitido.' });
     user.rol = rol;
   }
-  if (estado !== undefined) user.activo = String(estado).toLowerCase() === 'activo';
-  if (activo !== undefined) user.activo = Boolean(activo);
+  if (estado !== undefined) {
+    const normalizedEstado = String(estado).trim().toLowerCase();
+    if (!['activo', 'pendiente_verificacion', 'bloqueado', 'suspendido'].includes(normalizedEstado)) {
+      return res.status(400).json({ mensaje: 'Estado no permitido.' });
+    }
+    user.estado = normalizedEstado;
+    user.activo = normalizedEstado === 'activo';
+  }
+  if (activo !== undefined) {
+    user.activo = Boolean(activo);
+    user.estado = user.activo ? 'activo' : 'suspendido';
+  }
 
   addAuditLog('usuarios.update', req.user.id_usuario, `Actualizado usuario ${user.correo}`);
   res.json(publicUser(user));
@@ -474,6 +651,7 @@ router.delete('/usuarios/:id', authenticate, authorize(ROLES.ADMIN), (req, res) 
   const user = db.usuarios.find((item) => String(item.id_usuario) === String(req.params.id) || String(item.id) === String(req.params.id));
   if (!user) return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
   user.activo = false;
+  user.estado = 'suspendido';
   addAuditLog('usuarios.disable', req.user.id_usuario, `Desactivado usuario ${user.correo}`);
   res.json({ mensaje: 'Usuario desactivado.', usuario: publicUser(user) });
 });
@@ -805,11 +983,12 @@ function buildSeed() {
   }));
 
   const usuarios = [
-    user(1, 'Admin Sistema', 'admin@digiaduana.local', 'admin123', ROLES.ADMIN),
-    user(2, 'Valeria Menendez', 'forwarder@digiaduana.local', 'forwarder123', ROLES.FORWARDER),
-    user(3, 'Mario Escobar', 'supervisor@digiaduana.local', 'supervisor123', ROLES.SUPERVISOR),
-    user(4, 'Ana Morales', 'cliente@digiaduana.local', 'cliente123', ROLES.CLIENTE, 1),
-    user(5, 'Diego Guardado', 'soporte@digiaduana.local', 'soporte123', ROLES.SOPORTE)
+    user(1, 'Admin Sistema', 'admin@digiaduana.local', 'Admin123', ROLES.ADMIN),
+    user(2, 'Valeria Menendez', 'forwarder@digiaduana.local', 'Forwarder123', ROLES.FORWARDER),
+    user(3, 'Mario Escobar', 'supervisor@digiaduana.local', 'Supervisor123', ROLES.SUPERVISOR),
+    user(4, 'Ana Morales', 'cliente@digiaduana.local', 'Cliente123', ROLES.CLIENTE, 1),
+    user(5, 'Diego Guardado', 'soporte@digiaduana.local', 'Soporte123', ROLES.SOPORTE),
+    pendingUser(6, 'Usuario Prueba', 'usuario_prueba@digiaduana.local', ROLES.CLIENTE, 1)
   ];
 
   const expedientes = Array.from({ length: 30 }, (_, index) => expediente(index + 1, clientes));
@@ -827,10 +1006,33 @@ function user(id_usuario, nombre, correo, password, rol, cliente_id = null) {
     correo,
     rol,
     cliente_id,
+    telefono: '',
+    estado: 'activo',
     activo: true,
+    email_verificado: true,
+    verificado_en: relativeDate(80 - id_usuario).toISOString(),
     password_hash: bcrypt.hashSync(password, 8),
     creado_en: relativeDate(80 - id_usuario).toISOString()
   };
+}
+
+function pendingUser(id_usuario, nombre, correo, rol, cliente_id = null) {
+  const record = {
+    id_usuario,
+    nombre,
+    correo,
+    rol,
+    cliente_id,
+    telefono: '',
+    estado: 'pendiente_verificacion',
+    activo: false,
+    email_verificado: false,
+    password_hash: bcrypt.hashSync('Temporal123', 8),
+    creado_en: relativeDate(1).toISOString()
+  };
+  issueVerificationChallenge(record);
+  logVerificationEmail(record);
+  return record;
 }
 
 function expediente(id, clientes) {
@@ -1000,6 +1202,11 @@ function authenticate(req, res, next) {
       issuer: 'digiaduana-mock',
       audience: 'digiaduana-frontend'
     });
+    const currentUser = db.usuarios.find((item) => item.id_usuario === Number(req.user.id_usuario || req.user.id));
+    if (!currentUser) return res.status(401).json({ mensaje: 'Usuario de token no existe.' });
+    if (currentUser.estado === 'pendiente_verificacion') return res.status(403).json({ mensaje: 'Verifica tu cuenta primero', estado: currentUser.estado });
+    if (currentUser.estado === 'suspendido') return res.status(403).json({ mensaje: 'Cuenta suspendida. Contacte al administrador.', estado: currentUser.estado });
+    if (currentUser.estado !== 'activo' || !currentUser.activo) return res.status(403).json({ mensaje: 'Usuario sin acceso activo.', estado: currentUser.estado });
     return next();
   } catch {
     return res.status(401).json({ mensaje: 'Token invalido o expirado.' });
@@ -1018,7 +1225,7 @@ function authorize(...allowedRoles) {
 function simulateNetwork(req, res, next) {
   const delay = random(MIN_DELAY, MAX_DELAY);
   setTimeout(() => {
-    const stableEndpoint = req.path === '/health' || req.path === '/_reset' || req.path.startsWith('/auth') || req.path.startsWith('/tracking');
+    const stableEndpoint = req.path === '/health' || req.path === '/_reset' || req.path === '/verificar' || req.path === '/validar-cuenta' || req.path === '/reenviar-codigo' || req.path.startsWith('/auth') || req.path.startsWith('/tracking');
     if (!stableEndpoint && Math.random() < ERROR_RATE) {
       return res.status(503).json({ mensaje: 'Error temporal simulado. Intenta nuevamente.' });
     }
@@ -1166,8 +1373,35 @@ function dteDTO(dte) {
 }
 
 function publicUser(userRecord) {
-  const { password_hash, ...safeUser } = userRecord;
+  const { password_hash, verification_token, verification_code, verification_expires_at, ...safeUser } = userRecord;
   return safeUser;
+}
+
+function generateVerificationToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function generateVerificationCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+function issueVerificationChallenge(userRecord) {
+  userRecord.verification_token = generateVerificationToken();
+  userRecord.verification_code = generateVerificationCode();
+  userRecord.verification_expires_at = new Date(Date.now() + VERIFICATION_TTL_MS).toISOString();
+}
+
+function logVerificationEmail(userRecord) {
+  const tokenLink = `${FRONTEND_URL}/verificar-cuenta?token=${userRecord.verification_token}`;
+  const validateLink = `${FRONTEND_URL}/validate?email=${encodeURIComponent(userRecord.correo)}`;
+
+  console.info('\n[DigiAduana correo simulado]');
+  console.info(`Para: ${userRecord.correo}`);
+  console.info(`Asunto: Activa tu cuenta DigiAduana`);
+  console.info(`Codigo de verificacion: ${userRecord.verification_code}`);
+  console.info(`Enlace de validacion: ${validateLink}`);
+  console.info(`Enlace alternativo por token: ${tokenLink}`);
+  console.info(`Expira: ${userRecord.verification_expires_at}\n`);
 }
 
 function validateExpediente(body) {

@@ -35,15 +35,15 @@ const routes = [
     meta: { public: true, guestOnly: true, layout: PublicLayout }
   },
   {
-    path: '/registro',
-    name: 'Register',
-    component: () => import('../views/public/RegisterPage.vue'),
-    meta: { public: true, guestOnly: true, layout: PublicLayout }
+    path: '/verificar-cuenta',
+    name: 'VerifyAccount',
+    component: () => import('../views/public/VerifyAccount.vue'),
+    meta: { public: true, layout: PublicLayout }
   },
   {
-    path: '/verify',
-    name: 'VerifyEmail',
-    component: () => import('../views/public/VerifyEmail.vue'),
+    path: '/validate',
+    name: 'ValidateAccount',
+    component: () => import('../views/public/ValidateAccount.vue'),
     meta: { public: true, layout: PublicLayout }
   },
   {
@@ -306,6 +306,11 @@ router.beforeEach((to) => {
 
   if (!auth.isAuthenticated) {
     return { name: 'Login', query: { redirect: to.fullPath } };
+  }
+
+  if (!auth.isVerified) {
+    auth.logout();
+    return { name: 'Login', query: { pendiente: 'verificacion' } };
   }
 
   const requiredRole = to.matched

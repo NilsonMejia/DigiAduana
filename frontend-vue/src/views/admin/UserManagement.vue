@@ -41,7 +41,7 @@
           <select v-model="filters.status">
             <option value="">Todos</option>
             <option value="Activo">Activo</option>
-            <option value="Bloqueado">Bloqueado</option>
+            <option value="Pendiente">Pendiente</option>
             <option value="Suspendido">Suspendido</option>
           </select>
         </label>
@@ -98,11 +98,12 @@
                 <td>{{ user.jwtSession }}</td>
                 <td>
                   <div class="row-actions">
-                    <button title="Desbloquear sesión JWT" @click="unlockSession(user)">
-                      <i class="fas fa-key"></i>
-                    </button>
-                    <button title="Desactivar cuenta" @click="deactivateUser(user)">
-                      <i class="fas fa-user-slash"></i>
+                    <button
+                      :title="effectiveStatus(user) === 'activo' ? 'Suspender usuario' : 'Activar usuario'"
+                      :disabled="updatingUserId === user.id"
+                      @click="toggleUserStatus(user)"
+                    >
+                      <i :class="effectiveStatus(user) === 'activo' ? 'fas fa-user-slash' : 'fas fa-user-check'"></i>
                     </button>
                     <button title="Auditar usuario" @click="selectedAudit = user">
                       <i class="fas fa-clipboard-check"></i>
@@ -145,12 +146,26 @@
             <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
           </select>
         </label>
-        <label>Empresa / Área<input v-model="newUser.company" required placeholder="Operaciones San Salvador" /></label>
+        <label>Empresa / Área opcional<input v-model.trim="newUser.company" placeholder="Operaciones San Salvador" /></label>
+        <label>Telefono opcional<input v-model.trim="newUser.telefono" type="tel" placeholder="+503 7000 0000" /></label>
+        <label>Contrasena temporal
+          <div class="password-row">
+            <input v-model="newUser.password" required :type="showPassword ? 'text' : 'password'" placeholder="Minimo 8 caracteres" />
+            <button type="button" @click="generatePassword"><i class="fas fa-wand-magic-sparkles"></i></button>
+            <button type="button" @click="showPassword = !showPassword">
+              <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+            </button>
+          </div>
+        </label>
+        <small v-if="formError" class="form-error">{{ formError }}</small>
+        <small v-if="formMessage" class="form-message">{{ formMessage }}</small>
         <div class="bcrypt-preview">
           <i class="fas fa-fingerprint"></i>
-          <span>Se generará hash Bcrypt simulado y política JWT de {{ accessForRole(newUser.role) }}.</span>
+          <span>Se generará hash Bcrypt simulado, estado pendiente_verificacion y correo de activacion para {{ accessForRole(newUser.role) }}.</span>
         </div>
-        <button class="primary-btn" type="submit"><i class="fas fa-lock"></i> Crear con acceso seguro</button>
+        <button class="primary-btn" type="submit" :disabled="creatingUser">
+          <i class="fas fa-lock"></i> {{ creatingUser ? 'Creando...' : 'Crear con verificacion' }}
+        </button>
       </form>
     </div>
 
@@ -175,7 +190,8 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { api } from '../../services/api';
 
 const roles = [
   { value: 'admin', label: 'Administrador' },
@@ -191,19 +207,19 @@ const users = ref([
   { id: 3, name: 'Mario Escobar', email: 'supervisor@digiaduana.local', role: 'supervisor', company: 'Supervisión Aduanera', accessLevel: 'Nivel 4 - Aprobador', createdAt: '2026-01-20', status: 'Activo', jwtSession: 'Validada', lastIp: '190.120.77.83', lastLogin: '2026-05-17 08:55', hashPreview: '$2b$10$C4t...sup' },
   { id: 4, name: 'Ana Morales', email: 'cliente@digiaduana.local', role: 'cliente', company: 'Importadora Cuscatlán', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-02-02', status: 'Activo', jwtSession: 'Validada', lastIp: '186.32.91.17', lastLogin: '2026-05-16 16:44', hashPreview: '$2b$10$K1p...cli' },
   { id: 5, name: 'Diego Guardado', email: 'soporte@digiaduana.local', role: 'soporte', company: 'Mesa de Ayuda TI', accessLevel: 'Nivel 2 - Soporte', createdAt: '2026-02-05', status: 'Activo', jwtSession: 'Validada', lastIp: '10.10.2.31', lastLogin: '2026-05-17 07:48', hashPreview: '$2b$10$Z2n...sop' },
-  { id: 6, name: 'Sofía Alvarado', email: 'sofia.alvarado@digiaduana.local', role: 'supervisor', company: 'Operaciones Marítimas', accessLevel: 'Nivel 4 - Aprobador', createdAt: '2026-02-09', status: 'Bloqueado', jwtSession: 'Expirada', lastIp: '201.247.122.40', lastLogin: '2026-05-15 14:20', hashPreview: '$2b$10$N8m...sup' },
+  { id: 6, name: 'Sofía Alvarado', email: 'sofia.alvarado@digiaduana.local', role: 'supervisor', company: 'Operaciones Marítimas', accessLevel: 'Nivel 4 - Aprobador', createdAt: '2026-02-09', status: 'Suspendido', rawStatus: 'suspendido', jwtSession: 'Revocada', lastIp: '201.247.122.40', lastLogin: '2026-05-15 14:20', hashPreview: '$2b$10$N8m...sup' },
   { id: 7, name: 'Carlos Rivas', email: 'carlos.rivas@forwarder.local', role: 'forwarder', company: 'Pacífico Cargo', accessLevel: 'Nivel 3 - Operativo', createdAt: '2026-02-14', status: 'Activo', jwtSession: 'Validada', lastIp: '190.86.33.18', lastLogin: '2026-05-17 06:11', hashPreview: '$2b$10$L9s...frw' },
   { id: 8, name: 'Marcela Pineda', email: 'marcela.pineda@textiles.local', role: 'cliente', company: 'Textiles Santa Ana', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-02-21', status: 'Activo', jwtSession: 'Validada', lastIp: '181.225.42.91', lastLogin: '2026-05-16 11:18', hashPreview: '$2b$10$P7c...cli' },
   { id: 9, name: 'Roberto Aguilar', email: 'roberto.aguilar@naviera.local', role: 'forwarder', company: 'Naviera del Pacífico', accessLevel: 'Nivel 3 - Operativo', createdAt: '2026-02-25', status: 'Suspendido', jwtSession: 'Revocada', lastIp: '172.16.4.19', lastLogin: '2026-05-10 13:02', hashPreview: '$2b$10$R2v...frw' },
   { id: 10, name: 'Lucía Campos', email: 'lucia.campos@soporte.local', role: 'soporte', company: 'NOC DigiAduana', accessLevel: 'Nivel 2 - Soporte', createdAt: '2026-03-01', status: 'Activo', jwtSession: 'Validada', lastIp: '10.10.2.45', lastLogin: '2026-05-17 10:10', hashPreview: '$2b$10$S4k...sop' },
   { id: 11, name: 'Mauricio Arias', email: 'mauricio.arias@agrolempa.local', role: 'cliente', company: 'Agroexportadora Lempa', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-03-04', status: 'Activo', jwtSession: 'Validada', lastIp: '190.53.61.29', lastLogin: '2026-05-13 08:40', hashPreview: '$2b$10$J7q...cli' },
   { id: 12, name: 'Karla Mejía', email: 'karla.mejia@digiaduana.local', role: 'admin', company: 'Seguridad Aplicativa', accessLevel: 'Nivel 5 - Root', createdAt: '2026-03-07', status: 'Activo', jwtSession: 'Validada', lastIp: '10.0.0.12', lastLogin: '2026-05-17 09:02', hashPreview: '$2b$10$V5r...adm' },
-  { id: 13, name: 'Elena Portillo', email: 'elena.portillo@farmaceutica.local', role: 'cliente', company: 'Farmacéutica El Salvador', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-03-10', status: 'Bloqueado', jwtSession: 'Bloqueada', lastIp: '186.149.20.88', lastLogin: '2026-05-08 15:30', hashPreview: '$2b$10$T6y...cli' },
+  { id: 13, name: 'Elena Portillo', email: 'elena.portillo@farmaceutica.local', role: 'cliente', company: 'Farmacéutica El Salvador', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-03-10', status: 'Suspendido', rawStatus: 'suspendido', jwtSession: 'Revocada', lastIp: '186.149.20.88', lastLogin: '2026-05-08 15:30', hashPreview: '$2b$10$T6y...cli' },
   { id: 14, name: 'Daniel Herrera', email: 'daniel.herrera@cargo.local', role: 'forwarder', company: 'Aéreo Express SV', accessLevel: 'Nivel 3 - Operativo', createdAt: '2026-03-11', status: 'Activo', jwtSession: 'Validada', lastIp: '200.31.171.3', lastLogin: '2026-05-17 05:55', hashPreview: '$2b$10$B2h...frw' },
   { id: 15, name: 'Paola Calderón', email: 'paola.calderon@digiaduana.local', role: 'supervisor', company: 'Auditoría Documental', accessLevel: 'Nivel 4 - Aprobador', createdAt: '2026-03-16', status: 'Activo', jwtSession: 'Validada', lastIp: '10.1.2.76', lastLogin: '2026-05-16 17:19', hashPreview: '$2b$10$U7b...sup' },
   { id: 16, name: 'Óscar Lemus', email: 'oscar.lemus@soporte.local', role: 'soporte', company: 'Infraestructura Cloud', accessLevel: 'Nivel 2 - Soporte', createdAt: '2026-03-18', status: 'Activo', jwtSession: 'Validada', lastIp: '10.10.2.57', lastLogin: '2026-05-17 04:39', hashPreview: '$2b$10$M3c...sop' },
   { id: 17, name: 'Gabriela Solís', email: 'gabriela.solis@plasticos.local', role: 'cliente', company: 'Plásticos Mesoamérica', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-03-22', status: 'Activo', jwtSession: 'Validada', lastIp: '190.151.41.203', lastLogin: '2026-05-15 18:22', hashPreview: '$2b$10$A1x...cli' },
-  { id: 18, name: 'Héctor Núñez', email: 'hector.nunez@forwarder.local', role: 'forwarder', company: 'TransLogística CA', accessLevel: 'Nivel 3 - Operativo', createdAt: '2026-03-25', status: 'Bloqueado', jwtSession: 'Bloqueada', lastIp: '201.191.7.44', lastLogin: '2026-05-11 07:34', hashPreview: '$2b$10$E9d...frw' },
+  { id: 18, name: 'Héctor Núñez', email: 'hector.nunez@forwarder.local', role: 'forwarder', company: 'TransLogística CA', accessLevel: 'Nivel 3 - Operativo', createdAt: '2026-03-25', status: 'Suspendido', rawStatus: 'suspendido', jwtSession: 'Revocada', lastIp: '201.191.7.44', lastLogin: '2026-05-11 07:34', hashPreview: '$2b$10$E9d...frw' },
   { id: 19, name: 'Renata Figueroa', email: 'renata.figueroa@digiaduana.local', role: 'supervisor', company: 'Control de Riesgo', accessLevel: 'Nivel 4 - Aprobador', createdAt: '2026-03-28', status: 'Activo', jwtSession: 'Validada', lastIp: '10.1.1.84', lastLogin: '2026-05-16 12:01', hashPreview: '$2b$10$G6m...sup' },
   { id: 20, name: 'Luis Barrera', email: 'luis.barrera@coffee.local', role: 'cliente', company: 'Café Volcán de Izalco', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-04-01', status: 'Activo', jwtSession: 'Validada', lastIp: '181.115.18.62', lastLogin: '2026-05-14 09:16', hashPreview: '$2b$10$H4w...cli' },
   { id: 21, name: 'María José Quintanilla', email: 'maria.quintanilla@digiaduana.local', role: 'admin', company: 'Gobierno TI', accessLevel: 'Nivel 5 - Root', createdAt: '2026-04-04', status: 'Activo', jwtSession: 'Validada', lastIp: '10.0.0.18', lastLogin: '2026-05-17 10:05', hashPreview: '$2b$10$F2z...adm' },
@@ -213,7 +229,7 @@ const users = ref([
   { id: 25, name: 'Verónica Chacón', email: 'veronica.chacon@digiaduana.local', role: 'supervisor', company: 'Cumplimiento Aduanero', accessLevel: 'Nivel 4 - Aprobador', createdAt: '2026-04-18', status: 'Activo', jwtSession: 'Validada', lastIp: '10.1.1.102', lastLogin: '2026-05-17 07:07', hashPreview: '$2b$10$I9k...sup' },
   { id: 26, name: 'Ricardo Benítez', email: 'ricardo.benitez@techca.local', role: 'cliente', company: 'Tecnología Centroamericana', accessLevel: 'Nivel 1 - Consulta', createdAt: '2026-04-20', status: 'Activo', jwtSession: 'Validada', lastIp: '190.57.12.44', lastLogin: '2026-05-16 13:53', hashPreview: '$2b$10$X1l...cli' },
   { id: 27, name: 'Natalia Córdova', email: 'natalia.cordova@forwarder.local', role: 'forwarder', company: 'Global Freight SV', accessLevel: 'Nivel 3 - Operativo', createdAt: '2026-04-23', status: 'Activo', jwtSession: 'Validada', lastIp: '201.247.53.74', lastLogin: '2026-05-17 08:16', hashPreview: '$2b$10$O6a...frw' },
-  { id: 28, name: 'Ernesto Salazar', email: 'ernesto.salazar@soporte.local', role: 'soporte', company: 'Seguridad Perimetral', accessLevel: 'Nivel 2 - Soporte', createdAt: '2026-04-26', status: 'Bloqueado', jwtSession: 'Bloqueada', lastIp: '10.10.2.81', lastLogin: '2026-05-12 19:02', hashPreview: '$2b$10$P3u...sop' }
+  { id: 28, name: 'Ernesto Salazar', email: 'ernesto.salazar@soporte.local', role: 'soporte', company: 'Seguridad Perimetral', accessLevel: 'Nivel 2 - Soporte', createdAt: '2026-04-26', status: 'Suspendido', rawStatus: 'suspendido', jwtSession: 'Revocada', lastIp: '10.10.2.81', lastLogin: '2026-05-12 19:02', hashPreview: '$2b$10$P3u...sop' }
 ]);
 
 const filters = reactive({ search: '', role: '', status: '' });
@@ -221,7 +237,12 @@ const page = ref(1);
 const pageSize = ref(8);
 const showCreate = ref(false);
 const selectedAudit = ref(null);
-const newUser = reactive({ name: '', email: '', role: 'forwarder', company: '' });
+const creatingUser = ref(false);
+const updatingUserId = ref(null);
+const showPassword = ref(false);
+const formError = ref('');
+const formMessage = ref('');
+const newUser = reactive({ name: '', email: '', role: 'forwarder', company: '', telefono: '', password: '' });
 
 const filteredUsers = computed(() => {
   const term = filters.search.toLowerCase();
@@ -239,7 +260,7 @@ const paginatedUsers = computed(() => filteredUsers.value.slice((page.value - 1)
 const kpis = computed(() => [
   { label: 'Usuarios totales', value: users.value.length, icon: 'fas fa-users' },
   { label: 'Sesiones JWT válidas', value: users.value.filter((u) => u.jwtSession === 'Validada').length, icon: 'fas fa-key' },
-  { label: 'Cuentas bloqueadas', value: users.value.filter((u) => u.status === 'Bloqueado').length, icon: 'fas fa-lock' },
+  { label: 'Cuentas suspendidas', value: users.value.filter((u) => u.status === 'Suspendido').length, icon: 'fas fa-lock' },
   { label: 'Roles operativos', value: new Set(users.value.map((u) => u.role)).size, icon: 'fas fa-user-shield' }
 ]);
 
@@ -252,6 +273,44 @@ const recentEvents = ref([
 watch([() => filters.search, () => filters.role, () => filters.status, pageSize], () => {
   page.value = 1;
 });
+
+onMounted(() => {
+  loadUsers();
+});
+
+async function loadUsers() {
+  try {
+    const response = await api('/usuarios');
+    const data = Array.isArray(response.data) ? response.data : [];
+    users.value = data.map(mapApiUser);
+  } catch (error) {
+    recentEvents.value.unshift({
+      id: Date.now(),
+      icon: 'fas fa-triangle-exclamation',
+      title: 'Directorio demo',
+      detail: 'No se pudo cargar /usuarios; se mantiene la lista local de respaldo.'
+    });
+  }
+}
+
+function mapApiUser(user) {
+  const estado = String(user.estado || (user.activo ? 'activo' : 'suspendido')).toLowerCase();
+  return {
+    id: user.id_usuario || user.id,
+    name: user.nombre || user.name || 'Usuario DigiAduana',
+    email: user.correo || user.email,
+    role: user.rol || user.role,
+    company: user.empresa || user.company || areaForRole(user.rol || user.role),
+    accessLevel: accessForRole(user.rol || user.role),
+    createdAt: String(user.creado_en || user.createdAt || new Date().toISOString()).slice(0, 10),
+    rawStatus: estado,
+    status: statusLabel(estado),
+    jwtSession: estado === 'activo' ? 'Validada' : estado === 'pendiente_verificacion' ? 'Pendiente activacion' : 'Revocada',
+    lastIp: user.lastIp || 'Pendiente',
+    lastLogin: user.lastLogin || 'Sin acceso',
+    hashPreview: estado === 'pendiente_verificacion' ? 'Pendiente activacion' : '$2b$10$***'
+  };
+}
 
 function initials(name) {
   return name.split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase();
@@ -266,7 +325,29 @@ function roleClass(role) {
 }
 
 function statusClass(status) {
-  return status.toLowerCase();
+  return status.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
+}
+
+function statusLabel(estado) {
+  return {
+    activo: 'Activo',
+    pendiente_verificacion: 'Pendiente',
+    suspendido: 'Suspendido'
+  }[estado] || 'Suspendido';
+}
+
+function effectiveStatus(user) {
+  return user.rawStatus || statusClass(user.status).replace('-', '_');
+}
+
+function areaForRole(role) {
+  return {
+    admin: 'DigiAduana Central',
+    supervisor: 'Supervision Aduanera',
+    forwarder: 'Operaciones Freight Forwarder',
+    soporte: 'Mesa de Ayuda TI',
+    cliente: 'Cliente externo'
+  }[role] || 'DigiAduana';
 }
 
 function accessForRole(role) {
@@ -280,55 +361,92 @@ function accessForRole(role) {
 }
 
 function openCreateModal() {
-  Object.assign(newUser, { name: '', email: '', role: 'forwarder', company: '' });
+  Object.assign(newUser, { name: '', email: '', role: 'forwarder', company: '', telefono: '', password: generatePasswordValue() });
+  formError.value = '';
+  formMessage.value = '';
   showCreate.value = true;
 }
 
-function createUser() {
-  const id = Math.max(...users.value.map((user) => user.id)) + 1;
-  users.value.unshift({
-    id,
-    name: newUser.name,
-    email: newUser.email,
-    role: newUser.role,
-    company: newUser.company,
-    accessLevel: accessForRole(newUser.role),
-    createdAt: new Date().toISOString().slice(0, 10),
-    status: 'Activo',
-    jwtSession: 'Pendiente MFA',
-    lastIp: 'Pendiente',
-    lastLogin: 'Sin acceso',
-    hashPreview: `$2b$10$${Math.random().toString(36).slice(2, 12)}...new`
-  });
-  recentEvents.value.unshift({
-    id: Date.now(),
-    icon: 'fas fa-user-plus',
-    title: 'Usuario creado',
-    detail: `${newUser.email} creado con ${accessForRole(newUser.role)}.`
-  });
-  showCreate.value = false;
+function generatePasswordValue() {
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return `Digi-${suffix}!2026`;
 }
 
-function deactivateUser(user) {
-  user.status = 'Suspendido';
-  user.jwtSession = 'Revocada';
-  recentEvents.value.unshift({
-    id: Date.now(),
-    icon: 'fas fa-user-slash',
-    title: 'Cuenta desactivada',
-    detail: `${user.email} fue desactivado y sus tokens fueron revocados.`
-  });
+function generatePassword() {
+  newUser.password = generatePasswordValue();
 }
 
-function unlockSession(user) {
-  user.status = 'Activo';
-  user.jwtSession = 'Validada';
-  recentEvents.value.unshift({
-    id: Date.now(),
-    icon: 'fas fa-key',
-    title: 'Sesión JWT desbloqueada',
-    detail: `${user.email} recuperó acceso con token renovado.`
-  });
+function validateNewUser() {
+  if (newUser.name.trim().length < 3) return 'Ingresa el nombre completo.';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUser.email)) return 'Ingresa un correo electronico valido.';
+  if (!roles.some((role) => role.value === newUser.role)) return 'Selecciona un rol valido.';
+  if (newUser.password.length < 8) return 'La contrasena temporal debe tener al menos 8 caracteres.';
+  if (!/[A-Z]/.test(newUser.password) || !/[a-z]/.test(newUser.password) || !/\d/.test(newUser.password)) {
+    return 'La contrasena temporal debe incluir mayusculas, minusculas y numeros.';
+  }
+  return '';
+}
+
+async function createUser() {
+  formError.value = validateNewUser();
+  formMessage.value = '';
+  if (formError.value) return;
+
+  creatingUser.value = true;
+  try {
+    const response = await api('/usuarios', {
+      method: 'POST',
+      body: JSON.stringify({
+        nombre: newUser.name,
+        correo: newUser.email,
+        rol: newUser.role,
+        password: newUser.password,
+        telefono: newUser.telefono
+      })
+    });
+
+    const created = mapApiUser(response.usuario || response);
+    created.company = newUser.company || created.company;
+    users.value.unshift(created);
+    recentEvents.value.unshift({
+      id: Date.now(),
+      icon: 'fas fa-user-plus',
+      title: 'Usuario pendiente',
+      detail: `${created.email} fue creado y debe verificar su correo.`
+    });
+    formMessage.value = response.mensaje || 'Usuario creado. Revisa la consola del servidor para el enlace.';
+    setTimeout(() => {
+      showCreate.value = false;
+    }, 900);
+  } catch (error) {
+    formError.value = error.message;
+  } finally {
+    creatingUser.value = false;
+  }
+}
+
+async function toggleUserStatus(user) {
+  const action = effectiveStatus(user) === 'activo' ? 'suspender' : 'activar';
+  updatingUserId.value = user.id;
+  try {
+    const response = await api(`/usuarios/${user.id}/${action}`, { method: 'PATCH' });
+    recentEvents.value.unshift({
+      id: Date.now(),
+      icon: action === 'suspender' ? 'fas fa-user-slash' : 'fas fa-user-check',
+      title: action === 'suspender' ? 'Cuenta suspendida' : 'Cuenta activada',
+      detail: response.mensaje || `${user.email} fue actualizado.`
+    });
+    await loadUsers();
+  } catch (error) {
+    recentEvents.value.unshift({
+      id: Date.now(),
+      icon: 'fas fa-circle-exclamation',
+      title: 'No se pudo actualizar',
+      detail: error.message
+    });
+  } finally {
+    updatingUserId.value = null;
+  }
 }
 </script>
 
@@ -594,6 +712,8 @@ td {
 .role-cliente { color: #ddd6fe; background: rgba(139, 92, 246, 0.16); }
 .role-soporte { color: #fbcfe8; background: rgba(236, 72, 153, 0.16); }
 .activo { color: #a7f3d0; background: rgba(16, 185, 129, 0.14); }
+.pendiente { color: #bfdbfe; background: rgba(59, 130, 246, 0.16); }
+.pendiente-verificacion { color: #bfdbfe; background: rgba(59, 130, 246, 0.16); }
 .bloqueado { color: #fecaca; background: rgba(239, 68, 68, 0.14); }
 .suspendido { color: #fde68a; background: rgba(245, 158, 11, 0.14); }
 
@@ -682,6 +802,36 @@ td {
   border-radius: 0.9rem;
   color: #bfdbfe;
   background: rgba(59, 130, 246, 0.12);
+}
+
+.password-row {
+  display: grid;
+  grid-template-columns: 1fr 2.6rem 2.6rem;
+  gap: 0.45rem;
+}
+
+.password-row button {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.85rem;
+  color: #bfdbfe;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.form-error,
+.form-message {
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  font-weight: 800;
+}
+
+.form-error {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.form-message {
+  color: #86efac;
+  background: rgba(16, 185, 129, 0.12);
 }
 
 .audit-drawer {

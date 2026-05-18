@@ -75,6 +75,7 @@ export const useAuthStore = defineStore('auth', {
       user,
       token,
       rol: normalizeRole(user?.rol || user?.role || parseJwt(token)?.rol || ''),
+      verificationStatus: user?.estado || user?.estado_verificacion || '',
       isLoading: false
     };
   },
@@ -82,7 +83,11 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isAuthenticated: (state) => Boolean(state.token) && !isTokenExpired(state.token),
     userRole: (state) => normalizeRole(state.rol || state.user?.rol || state.user?.role || parseJwt(state.token)?.rol || ''),
-    userName: (state) => state.user?.nombre || state.user?.name || state.user?.correo || state.user?.email || 'Usuario DigiAduana'
+    userName: (state) => state.user?.nombre || state.user?.name || state.user?.correo || state.user?.email || 'Usuario DigiAduana',
+    isVerified: (state) => {
+      const status = String(state.verificationStatus || state.user?.estado || '').toLowerCase();
+      return !state.user || !status || ['activo', 'active'].includes(status);
+    }
   },
 
   actions: {
@@ -99,7 +104,10 @@ export const useAuthStore = defineStore('auth', {
 
         const payload = await response.json();
         if (!response.ok) {
-          throw new Error(payload?.mensaje || 'Error en el inicio de sesión');
+          const error = new Error(payload?.mensaje || 'Error en el inicio de sesión');
+          error.code = payload?.code || '';
+          this.verificationStatus = payload?.estado || '';
+          throw error;
         }
 
         const token = payload.token;
@@ -109,6 +117,7 @@ export const useAuthStore = defineStore('auth', {
         this.token = token;
         this.user = usuario;
         this.rol = normalizeRole(usuario.rol || usuario.role || parseJwt(token)?.rol || '');
+        this.verificationStatus = usuario.estado || usuario.estado_verificacion || 'activo';
 
         return payload;
       } finally {
@@ -121,6 +130,7 @@ export const useAuthStore = defineStore('auth', {
       this.user = null;
       this.token = null;
       this.rol = '';
+      this.verificationStatus = '';
     },
 
     checkAuth() {
@@ -135,6 +145,7 @@ export const useAuthStore = defineStore('auth', {
       this.token = token;
       this.user = user;
       this.rol = normalizeRole(user?.rol || user?.role || parseJwt(token)?.rol || '');
+      this.verificationStatus = user?.estado || user?.estado_verificacion || '';
       return true;
     },
 
