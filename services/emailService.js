@@ -34,11 +34,18 @@ async function sendVerificationEmail({ to, name, verificationUrl, verificationCo
   const safeUrl = escapeHtml(verificationUrl);
   const html = `
     <p>Hola ${safeName},</p>
-    <p>Tu cuenta DigiAduana fue creada. Usa este codigo para activar el acceso:</p>
-    <p style="font-size:28px;font-weight:800;letter-spacing:6px;margin:18px 0;">${escapeHtml(verificationCode || '')}</p>
-    <p>Ingresa el codigo en esta pagina:</p>
-    <p><a href="${safeUrl}">${safeUrl}</a></p>
-    <p>Este enlace vence en 24 horas.</p>
+    <p>Tu cuenta DigiAduana fue creada. Tienes dos opciones para activar tu acceso:</p>
+    <p><strong>Opcion 1: Haz clic en el siguiente boton</strong></p>
+    <p style="margin: 25px 0;">
+      <a href="${safeUrl}" style="padding: 12px 24px; background-color: #3b82f6; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold; font-family: sans-serif; display: inline-block;">
+        Verificar mi cuenta
+      </a>
+    </p>
+    <p><strong>Opci on 2: Ingresa este codigo manualmente</strong></p>
+    <p style="font-size:28px;font-weight:800;letter-spacing:6px;margin:18px 0; color: #1e3a8a;">${escapeHtml(verificationCode || '')}</p>
+    <p>Si el boton no funciona, copia y pega este enlace en tu navegador:</p>
+    <p><a href="${safeUrl}" style="color: #3b82f6; word-break: break-all;">${safeUrl}</a></p>
+    <p>Este acceso vence en 24 horas.</p>
   `;
   const text = `Hola ${name || ''},\n\nTu codigo de verificacion DigiAduana es: ${verificationCode || ''}\n\nIngresa el codigo en esta pagina:\n${verificationUrl}\n\nEste codigo vence en 24 horas.`;
 

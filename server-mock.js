@@ -33,6 +33,13 @@ const bcrypt = require('bcrypt');
 const multer = require('multer');
 const crypto = require('crypto');
 
+let sendVerificationEmail = null;
+try {
+  sendVerificationEmail = require('./services/emailService').sendVerificationEmail;
+} catch (e) {
+  console.warn('[mock] emailService no encontrado, se usara log en consola.');
+}
+
 const app = express();
 const router = express.Router();
 const upload = multer({
@@ -188,7 +195,7 @@ router.post('/validar-cuenta', (req, res) => {
   res.json({ mensaje: 'Cuenta validada correctamente. Ya puedes iniciar sesion.', usuario: publicUser(user) });
 });
 
-router.post('/reenviar-codigo', (req, res) => {
+router.post('/reenviar-codigo', async (req, res) => {
   const correo = String(req.body.email || req.body.correo || '').trim().toLowerCase();
   if (!correo) return res.status(400).json({ mensaje: 'email es obligatorio.' });
 
@@ -204,7 +211,7 @@ router.post('/reenviar-codigo', (req, res) => {
   }
 
   issueVerificationChallenge(user);
-  logVerificationEmail(user);
+  await dispatchVerificationEmail(user);
   addAuditLog('usuarios.resend_code', user.id_usuario, `Codigo reenviado: ${user.correo}`);
   res.json({ mensaje: 'Codigo reenviado. Revisa la consola del servidor.' });
 });
@@ -526,7 +533,7 @@ router.get('/usuarios/roles', authenticate, authorize(ROLES.ADMIN), (req, res) =
   );
 });
 
-router.post('/usuarios', authenticate, authorize(ROLES.ADMIN), (req, res) => {
+router.post('/usuarios', authenticate, authorize(ROLES.ADMIN), async (req, res) => {
   const { nombre, correo, rol, cliente_id, telefono } = req.body;
   const password = String(req.body.password || '').trim() || generateTemporaryPassword();
 
@@ -562,7 +569,7 @@ router.post('/usuarios', authenticate, authorize(ROLES.ADMIN), (req, res) => {
   issueVerificationChallenge(user);
 
   db.usuarios.push(user);
-  logVerificationEmail(user);
+  await dispatchVerificationEmail(user);
   addAuditLog('usuarios.create', req.user.id_usuario, `Creado usuario pendiente ${user.correo}`);
   res.status(201).json({
     mensaje: 'Usuario creado en estado pendiente_verificacion. Se envio enlace de verificacion simulado.',
@@ -1450,6 +1457,22 @@ function logVerificationEmail(userRecord) {
   console.info(`Enlace directo: ${validateLink}`);
   console.info(`Enlace alternativo por token: ${tokenLink}`);
   console.info(`Expira: ${expires}\n`);
+}
+
+async function dispatchVerificationEmail(userRecord) {
+  if (sendVerificationEmail) {
+    try {
+      const tokenLink = `${FRONTEND_URL}/verificar-cuenta?token=${userRecord.token_verificacion || userRecord.verification_token}`;
+      const code = userRecord.codigo_verificacion || userRecord.verification_code;
+      await sendVerificationEmail({ to: userRecord.correo, name: userRecord.nombre, verificationUrl: tokenLink, verificationCode: code });
+      console.info(`[mock] Correo real enviado a ${userRecord.correo}`);
+    } catch (error) {
+      console.error(`[mock] Fallo al enviar correo real: ${error.message}`);
+      logVerificationEmail(userRecord);
+    }
+  } else {
+    logVerificationEmail(userRecord);
+  }
 }
 
 function validateExpediente(body) {
