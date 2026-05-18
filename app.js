@@ -14,6 +14,7 @@ const reportesRoutes = require('./routes/reportesRoutes');
 const usuariosRoutes = require('./routes/usuariosRoutes');
 const operacionesRoutes = require('./routes/operacionesRoutes');
 const notificacionesRoutes = require('./routes/notificacionesRoutes');
+const clientesRoutes = require('./routes/clientesRoutes');
 const mockHacienda = require('./mocks/hacienda');
 const mockNavieras = require('./mocks/navieras');
 
@@ -38,6 +39,7 @@ app.use('/api/dte', dteRoutes);
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/notificaciones', notificacionesRoutes);
+app.use('/api/clientes', clientesRoutes);
 app.use('/api', operacionesRoutes);
 app.use('/api/mock-hacienda', mockHacienda);
 app.use('/api/mock-navieras', mockNavieras);

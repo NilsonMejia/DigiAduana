@@ -18,6 +18,9 @@ exports.listar = asyncHandler(async (req, res) => {
       nombre: row.nombre_original,
       estado: row.estado_validacion,
       url: row.ruta_archivo,
+      origen_integracion: row.tipo_documento === 'BL' ? 'Navieras' : row.tipo_documento === 'DUCA' || row.tipo_documento === 'DTE' ? 'Hacienda' : 'Cliente',
+      canal_integracion: row.tipo_documento === 'BL' ? 'mock-navieras' : row.tipo_documento === 'DUCA' || row.tipo_documento === 'DTE' ? 'mock-hacienda' : 'Carga manual',
+      codigo_externo: `${row.tipo_documento}-${row.id}`,
       fecha_carga: row.creado_en
     }))
   });

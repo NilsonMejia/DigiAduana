@@ -3,6 +3,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const audit = require('../utils/audit');
 
 const ESTADOS = ['BORRADOR', 'EN_REVISION', 'OBSERVADO', 'APROBADO', 'RECHAZADO', 'FINALIZADO'];
+const TIPOS_OPERACION = ['IMPORTACION', 'EXPORTACION', 'TRANSITO', 'REEXPORTACION'];
 
 function clienteScope(req) {
   return req.user.rol === 'CLIENTE' ? [req.user.cliente_id] : null;
@@ -67,13 +68,37 @@ exports.crear = asyncHandler(async (req, res) => {
   if (!cliente_id || !tipo_operacion || !regimen) {
     return res.status(400).json({ mensaje: 'Cliente, tipo de operacion y regimen son requeridos' });
   }
+  if (!TIPOS_OPERACION.includes(tipo_operacion)) {
+    return res.status(400).json({ mensaje: 'Tipo de operacion no valido' });
+  }
+  if (String(regimen).trim().length < 4) {
+    return res.status(400).json({ mensaje: 'Regimen debe tener al menos 4 caracteres' });
+  }
+  if (aduana_ingreso && String(aduana_ingreso).trim().length < 4) {
+    return res.status(400).json({ mensaje: 'Aduana de ingreso debe ser clara' });
+  }
+  if (descripcion && String(descripcion).trim().length > 500) {
+    return res.status(400).json({ mensaje: 'Descripcion no puede exceder 500 caracteres' });
+  }
+
+  const [[cliente]] = await pool.query("SELECT id FROM clientes WHERE id = ? AND estado = 'ACTIVO'", [cliente_id]);
+  if (!cliente) return res.status(400).json({ mensaje: 'Selecciona un cliente activo valido' });
 
   const codigo = `EXP-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
   const [result] = await pool.query(
     `INSERT INTO expedientes_aduanales
      (codigo, cliente_id, tipo_operacion, regimen, aduana_ingreso, aduana_salida, descripcion, responsable_id, estado)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'BORRADOR')`,
-    [codigo, cliente_id, tipo_operacion, regimen, aduana_ingreso, aduana_salida, descripcion, responsable_id || req.user.id]
+    [
+      codigo,
+      cliente_id,
+      tipo_operacion,
+      String(regimen).trim(),
+      String(aduana_ingreso || '').trim(),
+      String(aduana_salida || '').trim(),
+      String(descripcion || '').trim(),
+      responsable_id || req.user.id
+    ]
   );
 
   await audit(req.user.id, 'CREAR', 'expedientes_aduanales', result.insertId, codigo, req);

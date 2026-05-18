@@ -5,7 +5,7 @@
         <p>Nuevo tramite</p>
         <h1>Crear expediente aduanal</h1>
       </div>
-      <button type="button" @click="router.push({ name: 'ForwarderExpedientes' })">Volver al listado</button>
+      <button type="button" @click="router.push({ name: listRouteName })">Volver al listado</button>
     </header>
 
     <form class="form-page__form" novalidate @submit.prevent="submit">
@@ -13,9 +13,18 @@
         <legend>Datos generales</legend>
 
         <label>
-          Cliente ID
-          <input v-model.number="form.cliente_id" :class="{ 'is-invalid': errors.cliente_id }" type="number" min="1" />
+          Cliente
+          <input v-model.trim="clientSearch" type="search" placeholder="Buscar cliente por nombre, NIT o contacto" />
+          <select v-model.number="form.cliente_id" :class="{ 'is-invalid': errors.cliente_id }" :disabled="clientsLoading">
+            <option :value="0">{{ clientsLoading ? 'Cargando clientes...' : 'Selecciona un cliente' }}</option>
+            <option v-for="client in filteredClients" :key="client.id" :value="client.id">
+              {{ client.nombre }} - {{ client.nit }}
+            </option>
+          </select>
           <small v-if="errors.cliente_id">{{ errors.cliente_id }}</small>
+          <small v-else-if="selectedClient" class="form-page__hint">
+            {{ selectedClient.contacto_principal || 'Contacto no registrado' }} · {{ selectedClient.correo || 'sin correo' }}
+          </small>
         </label>
 
         <label>
@@ -38,7 +47,8 @@
 
         <label>
           Aduana ingreso
-          <input v-model.trim="form.aduana_ingreso" type="text" placeholder="Aduana Maritima Acajutla" />
+          <input v-model.trim="form.aduana_ingreso" :class="{ 'is-invalid': errors.aduana_ingreso }" type="text" placeholder="Aduana Maritima Acajutla" />
+          <small v-if="errors.aduana_ingreso">{{ errors.aduana_ingreso }}</small>
         </label>
 
         <label>
@@ -48,7 +58,9 @@
 
         <label class="form-page__wide">
           Descripcion
-          <textarea v-model.trim="form.descripcion" rows="4" placeholder="Detalle operativo del expediente"></textarea>
+          <textarea v-model.trim="form.descripcion" :class="{ 'is-invalid': errors.descripcion }" rows="4" maxlength="500" placeholder="Detalle operativo del expediente"></textarea>
+          <small v-if="errors.descripcion">{{ errors.descripcion }}</small>
+          <small v-else class="form-page__hint">{{ form.descripcion.length }}/500 caracteres</small>
         </label>
       </fieldset>
 
@@ -66,16 +78,21 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../../services/api';
+import { useAuthStore } from '../../stores/authStore';
 
 const router = useRouter();
+const auth = useAuthStore();
 const loading = ref(false);
+const clientsLoading = ref(false);
 const message = ref('');
 const serverError = ref('');
+const clients = ref([]);
+const clientSearch = ref('');
 const form = reactive({
-  cliente_id: 1,
+  cliente_id: 0,
   tipo_operacion: '',
   regimen: '',
   aduana_ingreso: '',
@@ -85,25 +102,47 @@ const form = reactive({
 const errors = reactive({
   cliente_id: '',
   tipo_operacion: '',
-  regimen: ''
+  regimen: '',
+  aduana_ingreso: '',
+  descripcion: ''
 });
 
+const filteredClients = computed(() => {
+  const term = clientSearch.value.toLowerCase();
+  if (!term) return clients.value;
+  return clients.value.filter((client) =>
+    [client.nombre, client.nit, client.contacto_principal, client.correo].some((value) =>
+      String(value || '').toLowerCase().includes(term)
+    )
+  );
+});
+
+const selectedClient = computed(() => clients.value.find((client) => Number(client.id) === Number(form.cliente_id)));
+const listRouteName = computed(() => (auth.userRole === 'supervisor' ? 'SupervisorExpedientes' : 'ForwarderExpedientes'));
+const detailRouteName = computed(() => (auth.userRole === 'supervisor' ? 'SupervisorExpedienteDetail' : 'ForwarderExpedienteDetail'));
+
 function validate() {
-  errors.cliente_id = form.cliente_id > 0 ? '' : 'Selecciona un cliente valido.';
+  errors.cliente_id = selectedClient.value ? '' : 'Selecciona un cliente de la lista.';
   errors.tipo_operacion = form.tipo_operacion ? '' : 'Selecciona el tipo de operacion.';
   errors.regimen = form.regimen.length >= 4 ? '' : 'Escribe un regimen claro.';
-  return !errors.cliente_id && !errors.tipo_operacion && !errors.regimen;
+  errors.aduana_ingreso = form.aduana_ingreso && form.aduana_ingreso.length < 4 ? 'Escribe una aduana de ingreso clara.' : '';
+  errors.descripcion = form.descripcion.length > 500 ? 'La descripcion no puede exceder 500 caracteres.' : '';
+  return !errors.cliente_id && !errors.tipo_operacion && !errors.regimen && !errors.aduana_ingreso && !errors.descripcion;
 }
 
 function resetForm() {
-  form.cliente_id = 1;
+  form.cliente_id = clients.value[0]?.id || 0;
   form.tipo_operacion = '';
   form.regimen = '';
   form.aduana_ingreso = '';
   form.aduana_salida = '';
   form.descripcion = '';
+  clientSearch.value = '';
   message.value = '';
   serverError.value = '';
+  Object.keys(errors).forEach((key) => {
+    errors[key] = '';
+  });
 }
 
 async function submit() {
@@ -118,13 +157,34 @@ async function submit() {
       body: JSON.stringify(form)
     });
     message.value = `Expediente ${created.codigo} creado correctamente.`;
-    router.push({ name: 'ForwarderExpedienteDetail', params: { id: created.id } });
+    router.push({ name: detailRouteName.value, params: { id: created.id } });
   } catch (error) {
     serverError.value = error.message;
   } finally {
     loading.value = false;
   }
 }
+
+async function loadClients() {
+  clientsLoading.value = true;
+  serverError.value = '';
+  try {
+    const response = await api('/clientes');
+    clients.value = (response.data || response).map((client) => ({
+      ...client,
+      id: Number(client.id || client.id_cliente)
+    }));
+    if (!form.cliente_id && clients.value.length) {
+      form.cliente_id = clients.value[0].id;
+    }
+  } catch (error) {
+    serverError.value = error.message;
+  } finally {
+    clientsLoading.value = false;
+  }
+}
+
+onMounted(loadClients);
 </script>
 
 <style scoped>
@@ -220,6 +280,11 @@ async function submit() {
 .form-page__form small,
 .form-page__error {
   color: var(--danger);
+}
+
+.form-page__hint {
+  color: #94a3b8 !important;
+  font-weight: 600;
 }
 
 .form-page__message {

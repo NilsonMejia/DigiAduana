@@ -183,6 +183,23 @@ router.get('/expedientes', authenticate, (req, res) => {
   res.json(payload);
 });
 
+router.get('/clientes', authenticate, (req, res) => {
+  const data = db.clientes
+    .filter((item) => req.user.rol !== ROLES.CLIENTE || item.id_cliente === req.user.cliente_id)
+    .map((item) => ({
+      id: item.id_cliente,
+      id_cliente: item.id_cliente,
+      nombre: item.nombre,
+      nit: item.nit,
+      contacto_principal: item.contacto,
+      correo: item.correo,
+      estado: 'ACTIVO'
+    }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+  res.json({ data, total: data.length });
+});
+
 router.get('/expedientes/:id', authenticate, (req, res) => {
   const expediente = findVisibleExpediente(req.params.id, req.user);
   if (!expediente) return res.status(404).json({ mensaje: 'Expediente no encontrado o sin acceso.' });
@@ -691,27 +708,36 @@ function documentosFor(exp) {
       expediente_id: exp.id,
       tipo: 'Factura comercial',
       nombre: `${exp.codigo}-factura.pdf`,
-      estado: exp.estado === 'Registrado' ? 'RECIBIDO' : 'APROBADO',
+      estado: exp.estado === 'BORRADOR' || exp.estado === 'Registrado' ? 'RECIBIDO' : 'APROBADO',
       url: `/uploads/mock/${exp.codigo}/factura.pdf`,
-      fecha_carga: addDays(base, 1).toISOString()
+      fecha_carga: addDays(base, 1).toISOString(),
+      origen_integracion: 'Cliente',
+      canal_integracion: 'Carga manual',
+      codigo_externo: `CLI-${exp.codigo}-FAC`
     },
     {
       id: exp.id * 10 + 2,
       expediente_id: exp.id,
       tipo: 'BL / Guia aerea',
       nombre: `${exp.codigo}-transporte.pdf`,
-      estado: exp.estado === 'Observado' ? 'OBSERVADO' : 'APROBADO',
+      estado: exp.estado === 'OBSERVADO' || exp.estado === 'Observado' ? 'OBSERVADO' : 'APROBADO',
       url: `/uploads/mock/${exp.codigo}/transporte.pdf`,
-      fecha_carga: addDays(base, 2).toISOString()
+      fecha_carga: addDays(base, 2).toISOString(),
+      origen_integracion: 'Navieras',
+      canal_integracion: 'mock-navieras',
+      codigo_externo: `MFT-${String(exp.id).padStart(6, '0')}`
     },
     {
       id: exp.id * 10 + 3,
       expediente_id: exp.id,
       tipo: 'DUCA',
       nombre: `${exp.codigo}-duca.pdf`,
-      estado: ['Liberado', 'Entregado'].includes(exp.estado) ? 'APROBADO' : 'PENDIENTE',
+      estado: ['APROBADO', 'FINALIZADO', 'Liberado', 'Entregado'].includes(exp.estado) ? 'APROBADO' : 'PENDIENTE',
       url: `/uploads/mock/${exp.codigo}/duca.pdf`,
-      fecha_carga: addDays(base, 4).toISOString()
+      fecha_carga: addDays(base, 4).toISOString(),
+      origen_integracion: 'Hacienda',
+      canal_integracion: 'mock-hacienda',
+      codigo_externo: `HAC-${new Date(base).getFullYear()}-${String(exp.id).padStart(6, '0')}`
     }
   ];
 }
@@ -859,6 +885,8 @@ function validateExpediente(body) {
   if (!body.cliente_id) return 'cliente_id es obligatorio.';
   if (!body.tipo_operacion || !TIPOS_OPERACION.includes(body.tipo_operacion)) return 'tipo_operacion no es valido.';
   if (!body.regimen || String(body.regimen).trim().length < 4) return 'regimen es obligatorio.';
+  if (body.aduana_ingreso && String(body.aduana_ingreso).trim().length < 4) return 'aduana_ingreso debe ser clara.';
+  if (body.descripcion && String(body.descripcion).trim().length > 500) return 'descripcion no puede exceder 500 caracteres.';
   return '';
 }
 

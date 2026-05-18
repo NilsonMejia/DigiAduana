@@ -24,6 +24,17 @@
         </article>
       </section>
 
+      <section class="premium-panel integration-strip" aria-label="Integraciones documentales">
+        <article v-for="source in integrationSummary" :key="source.name">
+          <i :class="source.icon"></i>
+          <div>
+            <strong>{{ source.count }}</strong>
+            <span>{{ source.name }}</span>
+          </div>
+          <small>{{ source.channel }}</small>
+        </article>
+      </section>
+
       <section class="premium-panel document-toolbar" aria-label="Filtros documentales">
         <label>
           Buscar
@@ -55,6 +66,7 @@
               <th>Expediente</th>
               <th>Tipo</th>
               <th>Archivo</th>
+              <th>Origen</th>
               <th>Estado</th>
               <th>Fecha</th>
               <th>Riesgo</th>
@@ -66,6 +78,10 @@
               <td>{{ doc.expediente }}</td>
               <td>{{ doc.tipo }}</td>
               <td>{{ doc.nombre }}</td>
+              <td>
+                <span class="document-source">{{ doc.origen_integracion || 'Cliente' }}</span>
+                <small>{{ doc.codigo_externo || doc.canal_integracion || 'Sin codigo' }}</small>
+              </td>
               <td><span class="premium-status">{{ doc.estado }}</span></td>
               <td>{{ formatDate(doc.fecha_carga) }}</td>
               <td>{{ riskFor(doc) }}</td>
@@ -137,6 +153,18 @@ const metrics = computed(() => [
     icon: 'fas fa-circle-check'
   }
 ]);
+const integrationSummary = computed(() => {
+  const sources = [
+    { name: 'Navieras', channel: 'mock-navieras', icon: 'fas fa-ship' },
+    { name: 'Hacienda', channel: 'mock-hacienda', icon: 'fas fa-landmark' },
+    { name: 'Cliente', channel: 'Carga manual', icon: 'fas fa-user-check' }
+  ];
+
+  return sources.map((source) => ({
+    ...source,
+    count: documents.value.filter((doc) => (doc.origen_integracion || 'Cliente') === source.name).length
+  }));
+});
 
 function formatDate(value) {
   if (!value) return 'Sin fecha';
@@ -217,6 +245,45 @@ onMounted(loadDocuments);
   color: #94a3b8;
 }
 
+.integration-strip {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.integration-strip article {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 0.75rem;
+  background: rgba(3, 7, 18, 0.32);
+}
+
+.integration-strip i {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: #bfdbfe;
+  border-radius: 0.75rem;
+  background: rgba(59, 130, 246, 0.18);
+}
+
+.integration-strip strong,
+.document-source {
+  display: block;
+  color: #fff;
+}
+
+.integration-strip span,
+.integration-strip small,
+.premium-table small {
+  display: block;
+  color: #94a3b8;
+}
+
 .document-action {
   padding: 0.5rem 0.75rem;
   border-radius: 0.75rem;
@@ -226,6 +293,10 @@ onMounted(loadDocuments);
 @media (min-width: 720px) {
   .document-toolbar {
     grid-template-columns: 1fr 14rem;
+  }
+
+  .integration-strip {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 </style>
