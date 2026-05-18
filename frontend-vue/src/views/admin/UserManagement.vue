@@ -90,7 +90,20 @@
                     </div>
                   </div>
                 </td>
-                <td><span class="role-badge" :class="roleClass(user.role)">{{ roleLabel(user.role) }}</span></td>
+                <td>
+                  <div class="role-editor">
+                    <select v-model="user.pendingRole" :class="roleClass(user.pendingRole)">
+                      <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
+                    </select>
+                    <button
+                      title="Guardar rol"
+                      :disabled="updatingRoleId === user.id || user.pendingRole === user.role"
+                      @click="changeUserRole(user)"
+                    >
+                      <i class="fas fa-floppy-disk"></i>
+                    </button>
+                  </div>
+                </td>
                 <td>{{ user.company }}</td>
                 <td>{{ user.accessLevel }}</td>
                 <td>{{ user.createdAt }}</td>
@@ -148,9 +161,9 @@
         </label>
         <label>Empresa / Área opcional<input v-model.trim="newUser.company" placeholder="Operaciones San Salvador" /></label>
         <label>Telefono opcional<input v-model.trim="newUser.telefono" type="tel" placeholder="+503 7000 0000" /></label>
-        <label>Contrasena temporal
+        <label>Contrasena temporal opcional
           <div class="password-row">
-            <input v-model="newUser.password" required :type="showPassword ? 'text' : 'password'" placeholder="Minimo 8 caracteres" />
+            <input v-model="newUser.password" :type="showPassword ? 'text' : 'password'" placeholder="Se genera automaticamente si queda vacia" />
             <button type="button" @click="generatePassword"><i class="fas fa-wand-magic-sparkles"></i></button>
             <button type="button" @click="showPassword = !showPassword">
               <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
@@ -161,7 +174,7 @@
         <small v-if="formMessage" class="form-message">{{ formMessage }}</small>
         <div class="bcrypt-preview">
           <i class="fas fa-fingerprint"></i>
-          <span>Se generará hash Bcrypt simulado, estado pendiente_verificacion y correo de activacion para {{ accessForRole(newUser.role) }}.</span>
+          <span>Se generará hash Bcrypt simulado, estado pendiente_verificacion, codigo de 6 digitos y correo de activacion para {{ accessForRole(newUser.role) }}.</span>
         </div>
         <button class="primary-btn" type="submit" :disabled="creatingUser">
           <i class="fas fa-lock"></i> {{ creatingUser ? 'Creando...' : 'Crear con verificacion' }}
@@ -239,6 +252,7 @@ const showCreate = ref(false);
 const selectedAudit = ref(null);
 const creatingUser = ref(false);
 const updatingUserId = ref(null);
+const updatingRoleId = ref(null);
 const showPassword = ref(false);
 const formError = ref('');
 const formMessage = ref('');
@@ -300,6 +314,7 @@ function mapApiUser(user) {
     name: user.nombre || user.name || 'Usuario DigiAduana',
     email: user.correo || user.email,
     role: user.rol || user.role,
+    pendingRole: user.rol || user.role,
     company: user.empresa || user.company || areaForRole(user.rol || user.role),
     accessLevel: accessForRole(user.rol || user.role),
     createdAt: String(user.creado_en || user.createdAt || new Date().toISOString()).slice(0, 10),
@@ -380,6 +395,7 @@ function validateNewUser() {
   if (newUser.name.trim().length < 3) return 'Ingresa el nombre completo.';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUser.email)) return 'Ingresa un correo electronico valido.';
   if (!roles.some((role) => role.value === newUser.role)) return 'Selecciona un rol valido.';
+  if (!newUser.password) return '';
   if (newUser.password.length < 8) return 'La contrasena temporal debe tener al menos 8 caracteres.';
   if (!/[A-Z]/.test(newUser.password) || !/[a-z]/.test(newUser.password) || !/\d/.test(newUser.password)) {
     return 'La contrasena temporal debe incluir mayusculas, minusculas y numeros.';
@@ -400,7 +416,7 @@ async function createUser() {
         nombre: newUser.name,
         correo: newUser.email,
         rol: newUser.role,
-        password: newUser.password,
+        password: newUser.password || undefined,
         telefono: newUser.telefono
       })
     });
@@ -446,6 +462,34 @@ async function toggleUserStatus(user) {
     });
   } finally {
     updatingUserId.value = null;
+  }
+}
+
+async function changeUserRole(user) {
+  if (user.pendingRole === user.role) return;
+  updatingRoleId.value = user.id;
+  try {
+    const response = await api(`/usuarios/${user.id}/rol`, {
+      method: 'PATCH',
+      body: JSON.stringify({ rol: user.pendingRole })
+    });
+    recentEvents.value.unshift({
+      id: Date.now(),
+      icon: 'fas fa-user-gear',
+      title: 'Rol actualizado',
+      detail: response.mensaje || `${user.email} ahora tiene rol ${roleLabel(user.pendingRole)}.`
+    });
+    await loadUsers();
+  } catch (error) {
+    user.pendingRole = user.role;
+    recentEvents.value.unshift({
+      id: Date.now(),
+      icon: 'fas fa-circle-exclamation',
+      title: 'No se pudo cambiar rol',
+      detail: error.message
+    });
+  } finally {
+    updatingRoleId.value = null;
   }
 }
 </script>
@@ -720,6 +764,35 @@ td {
 .row-actions {
   display: flex;
   gap: 0.4rem;
+}
+
+.role-editor {
+  display: grid;
+  grid-template-columns: minmax(8.5rem, 1fr) 2.2rem;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.role-editor select {
+  min-height: 2.2rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.role-editor button {
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.7rem;
+  color: #bfdbfe;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.role-editor button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
 }
 
 .row-actions button,

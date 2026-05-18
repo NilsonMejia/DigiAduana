@@ -180,7 +180,7 @@ function createParticles() {
 
 onMounted(() => {
   if (route.query.pendiente === 'verificacion') {
-    serverError.value = 'Cuenta pendiente de verificación, revisa tu correo.';
+    serverError.value = 'Cuenta pendiente de verificación. Revisa tu correo para activarla.';
   }
   createParticles();
 });

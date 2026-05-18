@@ -27,7 +27,7 @@
             pattern="[0-9]{6}"
             autocomplete="one-time-code"
             placeholder="000000"
-            @input="form.codigo = form.codigo.replace(/\\D/g, '').slice(0, 6)"
+            @input="form.codigo = form.codigo.replace(/\D/g, '').slice(0, 6)"
           />
         </label>
 
