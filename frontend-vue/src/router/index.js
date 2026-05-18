@@ -35,6 +35,18 @@ const routes = [
     meta: { public: true, guestOnly: true, layout: PublicLayout }
   },
   {
+    path: '/registro',
+    name: 'Register',
+    component: () => import('../views/public/RegisterPage.vue'),
+    meta: { public: true, guestOnly: true, layout: PublicLayout }
+  },
+  {
+    path: '/verify',
+    name: 'VerifyEmail',
+    component: () => import('../views/public/VerifyEmail.vue'),
+    meta: { public: true, layout: PublicLayout }
+  },
+  {
     path: '/tracking/:codigo?',
     name: 'PublicTracking',
     component: () => import('../views/public/PublicTracking.vue'),

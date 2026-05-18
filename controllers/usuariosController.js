@@ -1,9 +1,9 @@
 const bcrypt = require('bcrypt');
-const crypto = require('crypto');
 const pool = require('../config/db');
 const asyncHandler = require('../utils/asyncHandler');
 const audit = require('../utils/audit');
 const { sendVerificationEmail } = require('../services/emailService');
+const { buildVerificationUrl, createVerificationCode } = require('../utils/emailVerification');
 
 const ROLE_CODES = {
   admin: 'ADMINISTRADOR',
@@ -43,13 +43,9 @@ async function resolveRoleId({ rol_id, rol }) {
   return row?.id;
 }
 
-function publicBaseUrl(req) {
-  return process.env.PUBLIC_APP_URL || `${req.protocol}://${req.get('host')}`;
-}
-
 exports.listar = asyncHandler(async (req, res) => {
   const [rows] = await pool.query(
-    `SELECT u.id, u.nombre, u.correo, u.estado, u.email_verificado,
+    `SELECT u.id, u.nombre, u.correo, u.estado, u.email_verificado, u.email_verified_at,
             u.cliente_id, r.id AS rol_id, r.nombre AS rol, u.creado_en
      FROM usuarios u JOIN roles r ON r.id = u.rol_id
      ORDER BY u.creado_en DESC`
@@ -72,22 +68,46 @@ exports.crear = asyncHandler(async (req, res) => {
   if (!resolvedRoleId) return res.status(400).json({ mensaje: 'Rol no valido' });
 
   const hash = await bcrypt.hash(password, 10);
-  const verificationToken = crypto.randomBytes(32).toString('hex');
-  const tokenHash = crypto.createHash('sha256').update(verificationToken).digest('hex');
+  const verification = createVerificationCode();
+  const normalizedEmail = correo.trim().toLowerCase();
   const [result] = await pool.query(
     `INSERT INTO usuarios
-     (nombre, correo, password_hash, rol_id, cliente_id, estado, email_verificado, verification_token_hash, verification_expires)
-     VALUES (?, ?, ?, ?, ?, 'INACTIVO', 0, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))`,
-    [nombre, correo, hash, resolvedRoleId, cliente_id, tokenHash]
+     (nombre, correo, password_hash, rol_id, cliente_id, estado, email_verificado, email_verified_at,
+      verification_token, token_expires_at, verification_token_hash, verification_expires)
+     VALUES (?, ?, ?, ?, ?, 'INACTIVO', 0, NULL, ?, ?, ?, ?)`,
+    [
+      nombre.trim(),
+      normalizedEmail,
+      hash,
+      resolvedRoleId,
+      cliente_id,
+      verification.codeHash,
+      verification.expiresAt,
+      verification.codeHash,
+      verification.expiresAt
+    ]
   );
 
-  const verificationUrl = `${publicBaseUrl(req)}/api/auth/verificar-correo?token=${verificationToken}`;
-  const email = await sendVerificationEmail({ to: correo, name: nombre, verificationUrl });
+  const verificationUrl = buildVerificationUrl(req, normalizedEmail);
+  let email;
+  try {
+    email = await sendVerificationEmail({
+      to: normalizedEmail,
+      name: nombre.trim(),
+      verificationUrl,
+      verificationCode: verification.code
+    });
+  } catch (error) {
+    console.error(`No se pudo enviar el codigo de verificacion a ${normalizedEmail}: ${error.message}`);
+    return res.status(502).json({
+      mensaje: 'El usuario fue creado, pero no se pudo enviar el codigo al correo. Revisa la configuracion SMTP e intenta reenviar el codigo.'
+    });
+  }
   await audit(req.user.id, 'CREAR_USUARIO', 'usuarios', result.insertId, correo, req);
   res.status(201).json({
     id: result.insertId,
-    nombre,
-    correo,
+    nombre: nombre.trim(),
+    correo: normalizedEmail,
     rol_id: resolvedRoleId,
     estado: 'INACTIVO',
     email_verificado: 0,

@@ -16,6 +16,9 @@
       </div>
       
       <div class="nav-links">
+        <button class="nav-link" @click="goToRegister">
+          <i class="fas fa-user-plus"></i> Crear cuenta
+        </button>
         <button class="nav-link" @click="goToLogin">
           <i class="fas fa-sign-in-alt"></i> Iniciar sesión
         </button>
@@ -114,6 +117,9 @@
           <button class="btn-primary large" @click="goToLogin">
             <i class="fas fa-sign-in-alt"></i> Iniciar sesión
           </button>
+          <button class="btn-secondary large" @click="goToRegister">
+            <i class="fas fa-user-plus"></i> Crear cuenta
+          </button>
         </div>
       </section>
     </main>
@@ -135,6 +141,7 @@
           <div class="link-group">
             <h4>Plataforma</h4>
             <a href="#" @click.prevent="goToLogin">Iniciar sesión</a>
+            <a href="#" @click.prevent="goToRegister">Crear cuenta</a>
             <a href="#" @click.prevent="scrollToTracking">Seguimiento</a>
           </div>
           <div class="link-group">
@@ -169,6 +176,11 @@ const trackingResult = ref(null);
 function goToLogin() {
   auth.logout();
   router.push({ name: 'Login' });
+}
+
+function goToRegister() {
+  auth.logout();
+  router.push({ name: 'Register' });
 }
 
 function scrollToTracking() {

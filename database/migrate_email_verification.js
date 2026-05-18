@@ -40,14 +40,28 @@ async function main() {
     );
   }
 
-  await db.query("UPDATE usuarios SET email_verificado = 1 WHERE correo LIKE '%@digiaduana.local' OR id = 1");
+  if (!(await columnExists(db, 'email_verified_at'))) {
+    await db.query('ALTER TABLE usuarios ADD COLUMN email_verified_at DATETIME NULL AFTER email_verificado');
+  }
+
+  if (!(await columnExists(db, 'verification_token'))) {
+    await db.query('ALTER TABLE usuarios ADD COLUMN verification_token VARCHAR(255) NULL AFTER email_verified_at');
+  }
+
+  if (!(await columnExists(db, 'token_expires_at'))) {
+    await db.query('ALTER TABLE usuarios ADD COLUMN token_expires_at DATETIME NULL AFTER verification_token');
+  }
+
+  await db.query(
+    "UPDATE usuarios SET email_verificado = 1, email_verified_at = COALESCE(email_verified_at, NOW()) WHERE correo LIKE '%@digiaduana.local' OR id = 1"
+  );
 
   const [columns] = await db.query(
     `SELECT COLUMN_NAME
      FROM INFORMATION_SCHEMA.COLUMNS
      WHERE TABLE_SCHEMA = ?
        AND TABLE_NAME = 'usuarios'
-       AND COLUMN_NAME IN ('email_verificado', 'verification_token_hash', 'verification_expires')
+       AND COLUMN_NAME IN ('email_verificado', 'email_verified_at', 'verification_token', 'token_expires_at', 'verification_token_hash', 'verification_expires')
      ORDER BY ORDINAL_POSITION`,
     [process.env.DB_NAME]
   );

@@ -106,8 +106,14 @@
             </button>
 
             <div class="form-footer">
+              <button type="button" class="footer-link" @click="router.push({ name: 'Register' })">
+                <i class="fas fa-user-plus"></i> Crear cuenta
+              </button>
               <button type="button" class="footer-link" @click="router.push({ name: 'PublicTracking' })">
                 <i class="fas fa-search"></i> Consultar seguimiento público
+              </button>
+              <button type="button" class="footer-link" @click="router.push({ name: 'VerifyEmail' })">
+                <i class="fas fa-envelope-circle-check"></i> Verificar codigo
               </button>
             </div>
           </form>
@@ -635,6 +641,8 @@ onMounted(() => {
 .form-footer {
   margin-top: 1.5rem;
   text-align: center;
+  display: grid;
+  gap: 0.55rem;
 }
 
 .footer-link {
