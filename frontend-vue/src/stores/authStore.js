@@ -106,8 +106,16 @@ export const useAuthStore = defineStore('auth', {
         if (!response.ok) {
           const error = new Error(payload?.mensaje || 'Error en el inicio de sesión');
           error.code = payload?.code || '';
+          error.email = payload?.email || credentials?.correo || credentials?.email || '';
+          error.requiereCambioClave = Boolean(payload?.requiereCambioClave);
           this.verificationStatus = payload?.estado || '';
           throw error;
+        }
+
+        if (payload?.requiereCambioClave) {
+          this.logout();
+          this.verificationStatus = payload.estado || 'pendiente_verificacion';
+          return payload;
         }
 
         const token = payload.token;

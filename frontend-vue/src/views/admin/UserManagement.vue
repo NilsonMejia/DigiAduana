@@ -161,15 +161,6 @@
         </label>
         <label>Empresa / Área opcional<input v-model.trim="newUser.company" placeholder="Operaciones San Salvador" /></label>
         <label>Telefono opcional<input v-model.trim="newUser.telefono" type="tel" placeholder="+503 7000 0000" /></label>
-        <label>Contrasena temporal opcional
-          <div class="password-row">
-            <input v-model="newUser.password" :type="showPassword ? 'text' : 'password'" placeholder="Se genera automaticamente si queda vacia" />
-            <button type="button" @click="generatePassword"><i class="fas fa-wand-magic-sparkles"></i></button>
-            <button type="button" @click="showPassword = !showPassword">
-              <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
-            </button>
-          </div>
-        </label>
         <small v-if="formError" class="form-error">{{ formError }}</small>
         <small v-if="formMessage" class="form-message">{{ formMessage }}</small>
         <div class="bcrypt-preview">
@@ -253,10 +244,9 @@ const selectedAudit = ref(null);
 const creatingUser = ref(false);
 const updatingUserId = ref(null);
 const updatingRoleId = ref(null);
-const showPassword = ref(false);
 const formError = ref('');
 const formMessage = ref('');
-const newUser = reactive({ name: '', email: '', role: 'forwarder', company: '', telefono: '', password: '' });
+const newUser = reactive({ name: '', email: '', role: 'forwarder', company: '', telefono: '' });
 
 const filteredUsers = computed(() => {
   const term = filters.search.toLowerCase();
@@ -376,30 +366,16 @@ function accessForRole(role) {
 }
 
 function openCreateModal() {
-  Object.assign(newUser, { name: '', email: '', role: 'forwarder', company: '', telefono: '', password: generatePasswordValue() });
+  Object.assign(newUser, { name: '', email: '', role: 'forwarder', company: '', telefono: '' });
   formError.value = '';
   formMessage.value = '';
   showCreate.value = true;
-}
-
-function generatePasswordValue() {
-  const suffix = Math.random().toString(36).slice(2, 8);
-  return `Digi-${suffix}!2026`;
-}
-
-function generatePassword() {
-  newUser.password = generatePasswordValue();
 }
 
 function validateNewUser() {
   if (newUser.name.trim().length < 3) return 'Ingresa el nombre completo.';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUser.email)) return 'Ingresa un correo electronico valido.';
   if (!roles.some((role) => role.value === newUser.role)) return 'Selecciona un rol valido.';
-  if (!newUser.password) return '';
-  if (newUser.password.length < 8) return 'La contrasena temporal debe tener al menos 8 caracteres.';
-  if (!/[A-Z]/.test(newUser.password) || !/[a-z]/.test(newUser.password) || !/\d/.test(newUser.password)) {
-    return 'La contrasena temporal debe incluir mayusculas, minusculas y numeros.';
-  }
   return '';
 }
 
@@ -416,7 +392,6 @@ async function createUser() {
         nombre: newUser.name,
         correo: newUser.email,
         rol: newUser.role,
-        password: newUser.password || undefined,
         telefono: newUser.telefono
       })
     });
@@ -430,7 +405,7 @@ async function createUser() {
       title: 'Usuario pendiente',
       detail: `${created.email} fue creado y debe verificar su correo.`
     });
-    formMessage.value = response.mensaje || 'Usuario creado. Revisa la consola del servidor para el enlace.';
+    formMessage.value = response.mensaje || 'Usuario creado. Se envio correo con contrasena temporal y codigo.';
     setTimeout(() => {
       showCreate.value = false;
     }, 900);

@@ -153,9 +153,25 @@ async function submit() {
 
   loading.value = true;
   try {
-    await auth.login(form);
+    const response = await auth.login(form);
+    if (response?.requiereCambioClave) {
+      serverError.value = response.mensaje || 'Debes verificar tu cuenta y cambiar tu contrasena temporal antes de continuar.';
+      router.push({
+        name: 'CambiarClave',
+        query: { email: response.email || form.correo }
+      });
+      return;
+    }
     router.replace(route.query.redirect || { name: 'RoleDashboard' });
   } catch (error) {
+    if (error.requiereCambioClave) {
+      serverError.value = error.message || 'Debes verificar tu cuenta y cambiar tu contrasena temporal antes de continuar.';
+      router.push({
+        name: 'CambiarClave',
+        query: { email: error.email || form.correo }
+      });
+      return;
+    }
     serverError.value = error.message || 'Error de autenticación. Verifica tus credenciales.';
   } finally {
     loading.value = false;

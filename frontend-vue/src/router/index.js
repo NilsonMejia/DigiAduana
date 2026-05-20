@@ -47,6 +47,12 @@ const routes = [
     meta: { public: true, layout: PublicLayout }
   },
   {
+    path: '/cambiar-clave',
+    name: 'CambiarClave',
+    component: () => import('../views/public/CambiarClave.vue'),
+    meta: { public: true, layout: PublicLayout }
+  },
+  {
     path: '/tracking/:codigo?',
     name: 'PublicTracking',
     component: () => import('../views/public/PublicTracking.vue'),

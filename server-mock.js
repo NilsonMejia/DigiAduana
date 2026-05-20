@@ -17,6 +17,7 @@
  *   supervisor@digiaduana.local / Supervisor123
  *   cliente@digiaduana.local / Cliente123
  *   soporte@digiaduana.local / Soporte123
+ *   usuario_pendiente@digiaduana.local / Temp1234
  *
  * El mock expone rutas en raiz (/auth/login) y tambien bajo /api (/api/auth/login)
  * para facilitar integracion con distintas configuraciones del frontend.
@@ -54,7 +55,7 @@ const MAX_DELAY = Number(process.env.MOCK_MAX_DELAY || 800);
 const ERROR_RATE = Number(process.env.MOCK_ERROR_RATE ?? 0);
 const CACHE_TTL_MS = 10_000;
 const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
-const FRONTEND_URL = process.env.MOCK_FRONTEND_URL || `http://localhost:${PORT}`;
+const FRONTEND_URL = process.env.MOCK_FRONTEND_URL || 'http://localhost:5173';
 
 const ROLES = Object.freeze({
   ADMIN: 'admin',
@@ -142,7 +143,7 @@ router.get('/verificar', (req, res) => {
   res.json({ mensaje: 'Cuenta verificada correctamente. Ya puedes iniciar sesion.', usuario: publicUser(user) });
 });
 
-router.post('/validar-cuenta', (req, res) => {
+function validateVerificationCodeAndSetPassword(req, res) {
   const correo = String(req.body.email || req.body.correo || '').trim().toLowerCase();
   const codigo = String(req.body.codigo || '').trim();
   const nuevaPassword = String(req.body.nueva_password || req.body.password || req.body.nuevaPassword || '');
@@ -193,7 +194,10 @@ router.post('/validar-cuenta', (req, res) => {
 
   addAuditLog('usuarios.validate', user.id_usuario, `Cuenta validada con codigo: ${user.correo}`);
   res.json({ mensaje: 'Cuenta validada correctamente. Ya puedes iniciar sesion.', usuario: publicUser(user) });
-});
+}
+
+router.post('/validar-cuenta', validateVerificationCodeAndSetPassword);
+router.post('/validar-codigo', validateVerificationCodeAndSetPassword);
 
 router.post('/reenviar-codigo', async (req, res) => {
   const correo = String(req.body.email || req.body.correo || '').trim().toLowerCase();
@@ -233,8 +237,10 @@ router.post('/auth/login', (req, res) => {
   }
 
   if (user.estado === 'pendiente_verificacion') {
-    return res.status(403).json({
-      mensaje: 'Cuenta pendiente de verificación. Revisa tu correo para activarla.',
+    return res.json({
+      mensaje: 'Debes verificar tu cuenta y cambiar tu contrasena temporal antes de continuar.',
+      requiereCambioClave: true,
+      email: user.correo,
       code: 'PENDING_VERIFICATION',
       estado: user.estado
     });
@@ -535,14 +541,10 @@ router.get('/usuarios/roles', authenticate, authorize(ROLES.ADMIN), (req, res) =
 
 router.post('/usuarios', authenticate, authorize(ROLES.ADMIN), async (req, res) => {
   const { nombre, correo, rol, cliente_id, telefono } = req.body;
-  const password = String(req.body.password || '').trim() || generateTemporaryPassword();
+  const temporaryPassword = generateTemporaryPassword();
 
   if (!nombre || !correo || !rol) {
     return res.status(400).json({ mensaje: 'nombre, correo y rol son obligatorios.' });
-  }
-
-  if (String(password).length < 8) {
-    return res.status(400).json({ mensaje: 'La contrasena temporal debe tener al menos 8 caracteres.' });
   }
 
   if (!Object.values(ROLES).includes(rol)) {
@@ -563,16 +565,16 @@ router.post('/usuarios', authenticate, authorize(ROLES.ADMIN), async (req, res) 
     estado: 'pendiente_verificacion',
     activo: false,
     email_verificado: false,
-    password_hash: bcrypt.hashSync(password, 8),
+    password_hash: bcrypt.hashSync(temporaryPassword, 8),
     creado_en: new Date().toISOString()
   };
   issueVerificationChallenge(user);
 
   db.usuarios.push(user);
-  await dispatchVerificationEmail(user);
+  await dispatchVerificationEmail(user, temporaryPassword);
   addAuditLog('usuarios.create', req.user.id_usuario, `Creado usuario pendiente ${user.correo}`);
   res.status(201).json({
-    mensaje: 'Usuario creado en estado pendiente_verificacion. Se envio enlace de verificacion simulado.',
+    mensaje: 'Usuario creado en estado pendiente_verificacion. Se envio un correo con contrasena temporal y codigo de verificacion.',
     usuario: publicUser(user)
   });
 });
@@ -1021,7 +1023,7 @@ function buildSeed() {
     user(3, 'Mario Escobar', 'supervisor@digiaduana.local', 'Supervisor123', ROLES.SUPERVISOR),
     user(4, 'Ana Morales', 'cliente@digiaduana.local', 'Cliente123', ROLES.CLIENTE, 1),
     user(5, 'Diego Guardado', 'soporte@digiaduana.local', 'Soporte123', ROLES.SOPORTE),
-    pendingUser(6, 'Demo Pendiente', 'demo.pendiente@digiaduana.local', ROLES.FORWARDER)
+    pendingUser(6, 'Usuario Pendiente', 'usuario_pendiente@digiaduana.local', 'Temp1234', ROLES.FORWARDER)
   ];
 
   const expedientes = Array.from({ length: 30 }, (_, index) => expediente(index + 1, clientes));
@@ -1049,7 +1051,7 @@ function user(id_usuario, nombre, correo, password, rol, cliente_id = null) {
   };
 }
 
-function pendingUser(id_usuario, nombre, correo, rol, cliente_id = null) {
+function pendingUser(id_usuario, nombre, correo, password, rol, cliente_id = null) {
   const record = {
     id_usuario,
     nombre,
@@ -1060,11 +1062,11 @@ function pendingUser(id_usuario, nombre, correo, rol, cliente_id = null) {
     estado: 'pendiente_verificacion',
     activo: false,
     email_verificado: false,
-    password_hash: bcrypt.hashSync('Temporal123', 8),
+    password_hash: bcrypt.hashSync(password, 8),
     creado_en: relativeDate(1).toISOString()
   };
   issueVerificationChallenge(record);
-  logVerificationEmail(record);
+  logVerificationEmail(record, password);
   return record;
 }
 
@@ -1237,7 +1239,7 @@ function authenticate(req, res, next) {
     });
     const currentUser = db.usuarios.find((item) => item.id_usuario === Number(req.user.id_usuario || req.user.id));
     if (!currentUser) return res.status(401).json({ mensaje: 'Usuario de token no existe.' });
-    if (currentUser.estado === 'pendiente_verificacion') return res.status(403).json({ mensaje: 'Cuenta pendiente de verificación. Revisa tu correo para activarla.', estado: currentUser.estado });
+    if (currentUser.estado === 'pendiente_verificacion') return res.status(403).json({ mensaje: 'Cuenta pendiente de verificacion. Debes cambiar tu contrasena temporal.', estado: currentUser.estado });
     if (currentUser.estado === 'suspendido') return res.status(403).json({ mensaje: 'Cuenta suspendida. Contacta al administrador.', estado: currentUser.estado });
     if (currentUser.estado !== 'activo' || !currentUser.activo) return res.status(403).json({ mensaje: 'Usuario sin acceso activo.', estado: currentUser.estado });
     return next();
@@ -1258,7 +1260,7 @@ function authorize(...allowedRoles) {
 function simulateNetwork(req, res, next) {
   const delay = random(MIN_DELAY, MAX_DELAY);
   setTimeout(() => {
-    const stableEndpoint = req.path === '/health' || req.path === '/_reset' || req.path === '/verificar' || req.path === '/validar-cuenta' || req.path === '/reenviar-codigo' || req.path.startsWith('/auth') || req.path.startsWith('/tracking');
+    const stableEndpoint = req.path === '/health' || req.path === '/_reset' || req.path === '/verificar' || req.path === '/validar-cuenta' || req.path === '/validar-codigo' || req.path === '/reenviar-codigo' || req.path.startsWith('/auth') || req.path.startsWith('/tracking');
     if (!stableEndpoint && Math.random() < ERROR_RATE) {
       return res.status(503).json({ mensaje: 'Error temporal simulado. Intenta nuevamente.' });
     }
@@ -1428,7 +1430,7 @@ function generateVerificationCode() {
 }
 
 function generateTemporaryPassword() {
-  return `Digi-${crypto.randomBytes(4).toString('hex')}A1`;
+  return `Temp${String(crypto.randomInt(0, 10000)).padStart(4, '0')}`;
 }
 
 function issueVerificationChallenge(userRecord) {
@@ -1443,35 +1445,35 @@ function issueVerificationChallenge(userRecord) {
   userRecord.verification_expires_at = expires;
 }
 
-function logVerificationEmail(userRecord) {
-  const tokenLink = `${FRONTEND_URL}/verificar-cuenta?token=${userRecord.token_verificacion || userRecord.verification_token}`;
-  const validateLink = `${FRONTEND_URL}/validate?email=${encodeURIComponent(userRecord.correo)}`;
+function logVerificationEmail(userRecord, temporaryPassword = null) {
+  const validateLink = `${FRONTEND_URL}/cambiar-clave?email=${encodeURIComponent(userRecord.correo)}`;
   const code = userRecord.codigo_verificacion || userRecord.verification_code;
   const expires = userRecord.expiracion_token || userRecord.verification_expires_at;
 
   console.info('\n[DigiAduana correo simulado]');
   console.info(`Para: ${userRecord.correo}`);
-  console.info('Asunto: Valida tu cuenta DigiAduana');
-  console.info(`Cuerpo: Hola ${userRecord.nombre}, tu cuenta fue creada. Usa este codigo para activar el acceso: ${code}. Ingresa el codigo en esta pagina: ${validateLink}`);
+  console.info('Asunto: Activa tu cuenta DigiAduana');
+  console.info(`Cuerpo: Hola ${userRecord.nombre}, tu cuenta fue creada. Ingresa a ${FRONTEND_URL}/login con tu correo y la contrasena temporal. Luego valida el codigo en ${validateLink}.`);
+  if (temporaryPassword) console.info(`Contrasena temporal: ${temporaryPassword}`);
   console.info(`Codigo de verificacion: ${code}`);
-  console.info(`Enlace directo: ${validateLink}`);
-  console.info(`Enlace alternativo por token: ${tokenLink}`);
+  console.info(`Enlace para cambiar clave: ${validateLink}`);
   console.info(`Expira: ${expires}\n`);
 }
 
-async function dispatchVerificationEmail(userRecord) {
+async function dispatchVerificationEmail(userRecord, temporaryPassword = null) {
   if (sendVerificationEmail) {
     try {
       const tokenLink = `${FRONTEND_URL}/verificar-cuenta?token=${userRecord.token_verificacion || userRecord.verification_token}`;
       const code = userRecord.codigo_verificacion || userRecord.verification_code;
       await sendVerificationEmail({ to: userRecord.correo, name: userRecord.nombre, verificationUrl: tokenLink, verificationCode: code });
       console.info(`[mock] Correo real enviado a ${userRecord.correo}`);
+      if (temporaryPassword) logVerificationEmail(userRecord, temporaryPassword);
     } catch (error) {
       console.error(`[mock] Fallo al enviar correo real: ${error.message}`);
-      logVerificationEmail(userRecord);
+      logVerificationEmail(userRecord, temporaryPassword);
     }
   } else {
-    logVerificationEmail(userRecord);
+    logVerificationEmail(userRecord, temporaryPassword);
   }
 }
 
